@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Prompt · 提示词调试 2.0</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e8eaee; --line-soft:#f0f2f5;
+    --text:#1f2329; --text-2:#5b6371; --text-3:#9aa1ad;
+    --brand:#2c6bed; --brand-soft:#eef4ff;
+    --danger:#e5484d; --danger-soft:#fdf0f0; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .app{display:flex;min-height:100vh}
+
+  /* ---------- 左侧菜单 ---------- */
+  .sidebar{
+    width:236px; flex:0 0 236px; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; height:60px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-logo{
+    width:28px; height:28px; border-radius:7px; flex:0 0 auto; color:#fff;
+    background:linear-gradient(135deg,#2c6bed,#5b9bff);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.2px}
+
+  .menu{padding:10px 8px; overflow:auto; flex:1}
+  .menu ul{list-style:none; margin:0; padding:0}
+  .item{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 10px; border:0; border-radius:6px; background:transparent;
+    color:var(--text-2); font:inherit; text-align:left; cursor:pointer;
+  }
+  .item:hover{background:#f4f5f8; color:var(--text)}
+  .menu a.item{text-decoration:none}
+  .item .caret{
+    width:14px; flex:0 0 14px; color:var(--text-3); font-size:10px;
+    text-align:center; transition:transform .15s ease;
+  }
+  .group.open > .item .caret{transform:rotate(90deg)}
+  .group.leaf > .item .caret{visibility:hidden}
+  .item .label{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lv1{font-size:14px; font-weight:600; color:var(--text)}
+  .lv2{margin-left:8px; font-size:13.5px}
+  .lv3{margin-left:22px; font-size:13px; color:var(--text-3); padding:6px 10px}
+  .lv3 .dot{width:4px; height:4px; border-radius:50%; background:#cdd2db; flex:0 0 4px}
+  .lv3:hover .dot, .lv3.active .dot{background:var(--brand)}
+  .item.active{background:var(--brand-soft); color:var(--brand)}
+  .sub{display:none}
+  .group.open > .sub{display:block}
+  .sidebar-foot{padding:12px 18px; border-top:1px solid var(--line); color:var(--text-3); font-size:12px}
+
+  /* ---------- 主区 ---------- */
+  .main{flex:1; min-width:0; padding:20px 24px 40px}
+  .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px}
+  .crumb{color:var(--text-3); font-size:13px}
+  .crumb b{color:var(--text); font-weight:600; font-size:15px}
+  .actions{display:flex; align-items:center; gap:8px; flex:0 0 auto}
+
+  /* 页头左侧：标题 + 选择模型按钮 + 模型介绍行 */
+  .head-left{display:flex; align-items:center; flex-wrap:wrap; gap:10px 12px; min-width:0; flex:1 1 auto}
+  .model-intro{display:flex; align-items:center; flex-wrap:wrap; gap:8px}
+  .model-intro[hidden]{display:none}
+  .model-intro .mi{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border:1px solid var(--line); border-radius:6px; background:var(--panel);
+  }
+  .model-intro .mi em{font-style:normal; color:var(--text-3); font-size:12.5px}
+  .model-intro .mi b{font-weight:600; font-size:13px; font-variant-numeric:tabular-nums}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:32px; padding:0 14px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{background:#fafbfc; border-color:#d9dde3}
+  a.btn, a.btn:hover{text-decoration:none}
+  .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn-primary:hover{background:#255ed6; border-color:#255ed6}
+  .btn-sm{height:28px; padding:0 10px; font-size:13px}
+  /* .btn 的 display 会盖掉 UA 的 [hidden]，未勾选「多轮对话」时「添加一轮」必须真的隐藏 */
+  .btn[hidden]{display:none}
+
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch}
+  .grid > section{display:flex; flex-direction:column; min-width:0}
+  /* 右侧：输出卡片自动占满剩余高度，指标卡固定在底部 */
+  .grid > section > .card.output-card{flex:1 1 auto; display:flex; flex-direction:column; min-height:320px}
+  .output-card > .output-body{flex:1 1 auto; display:flex; flex-direction:column; padding-bottom:18px}
+  .output-card textarea{flex:1 1 auto; min-height:200px}
+  .grid > section > .metrics{flex:0 0 auto}
+  @media (max-width:1100px){ .grid{grid-template-columns:1fr} }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:14px 18px; border-bottom:1px solid var(--line-soft);
+  }
+  .card-head h2{margin:0; font-size:15px; font-weight:600}
+  .head-right{display:flex; align-items:center; gap:8px}
+  .mt16{margin-top:16px}
+
+  .form{padding:18px 18px 4px}
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:16px}
+  .field > label{font-size:13px; color:var(--text-2)}
+  /* 标签 + 右侧操作按钮（如复制） */
+  .field-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .field-head label{font-size:13px; color:var(--text-2)}
+  .head-tools{display:flex; align-items:center; gap:8px}
+  .field label .req{color:var(--danger)}
+  .field input, .field select, .field textarea{
+    width:100%; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit;
+  }
+  .field input, .field select{height:34px}
+  .field select{cursor:pointer}
+  .field textarea{padding:8px 10px; resize:vertical; line-height:1.6}
+  .field input::placeholder, .field textarea::placeholder{color:var(--text-3)}
+  .field input:focus, .field select:focus, .field textarea:focus{
+    border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12);
+  }
+  .field input[readonly]{background:#f7f8fa; color:var(--text-2); cursor:not-allowed}
+  .field.invalid input, .field.invalid textarea, .field.invalid select{border-color:#ecb4b6; background:#fffafa}
+  .error{display:none; color:var(--danger); font-size:12px}
+  .field.invalid .error{display:block}
+  .hint{color:var(--text-3); font-size:12px}
+
+  /* 计费标签 */
+  .prices{display:flex; flex-wrap:wrap; gap:8px; margin-top:-4px}
+  .tag{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border-radius:6px; font-size:12.5px;
+    background:var(--brand-soft); color:var(--brand);
+  }
+  .tag em{font-style:normal; font-weight:600; font-variant-numeric:tabular-nums}
+  .tag.hidden{display:none}
+
+  /* 多轮对话 */
+  .check{display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-2)}
+  .check input{width:15px; height:15px; accent-color:var(--brand); cursor:pointer; margin:0}
+  .round-list[hidden]{display:none}
+  .round-list{margin-bottom:16px}
+  .round{display:flex; flex-direction:column; gap:6px; margin-bottom:14px}
+  .round .round-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .round .round-head span{font-size:13px; color:var(--text-2)}
+  .round .remove{
+    border:0; background:transparent; color:var(--text-3);
+    font:inherit; font-size:12.5px; cursor:pointer; padding:0;
+  }
+  .round .remove:hover{color:var(--danger)}
+
+  .form-foot{display:flex; gap:8px; padding:16px 18px; border-top:1px solid var(--line-soft); background:#fbfcfd}
+
+  /* ---------- 指标卡 ---------- */
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px}
+  .metrics-4{grid-template-columns:repeat(4,1fr)}
+  @media (max-width:900px){ .metrics, .metrics-4{grid-template-columns:1fr 1fr} }
+  @media (max-width:640px){ .metrics, .metrics-4{grid-template-columns:1fr} }
+  .metric{padding:14px 16px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel)}
+  .metric .m-label{color:var(--text-3); font-size:12.5px; margin-bottom:6px}
+  .metric .m-value{font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.2}
+  .metric .m-unit{font-size:12.5px; color:var(--text-3); font-weight:400; margin-left:2px}
+  .metric .m-sub{color:var(--text-3); font-size:12px; margin-top:4px}
+  .metric .m-tokens{color:var(--text-2); font-size:12.5px; margin-top:4px; font-variant-numeric:tabular-nums}
+  .metric.accent{background:var(--brand-soft); border-color:#dbe7ff}
+  .metric.accent .m-value{color:var(--brand)}
+
+  /* ---------- 调试结果表格 ---------- */
+  .table-wrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; min-width:1040px}
+  th,td{padding:12px 18px; text-align:left; font-weight:400; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  thead th{
+    color:var(--text-2); font-size:13px; font-weight:600;
+    background:#fbfcfd; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody tr:hover{background:#fafbfd}
+  tbody tr:last-child td{border-bottom:0}
+  .col-no{width:56px; color:var(--text-3); font-variant-numeric:tabular-nums}
+  .col-text{min-width:200px; max-width:320px; word-break:break-word}
+  .col-verdict{width:132px}
+  .result-text{color:var(--text-2); font-size:13px}
+  .result-empty{color:var(--text-3)}
+  .verdict-sel{
+    width:100%; height:28px; padding:0 8px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text-2); font:inherit; font-size:13px; cursor:pointer;
+  }
+  .verdict-sel:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .verdict-sel.ok{color:var(--brand); border-color:#dbe7ff; background:var(--brand-soft)}
+  .verdict-sel.bad{color:var(--danger); border-color:#f2c9cb; background:var(--danger-soft)}
+  .empty{padding:48px 0; text-align:center; color:var(--text-3)}
+  .table-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 18px; background:#fbfcfd; color:var(--text-3); font-size:13px;
+  }
+  .table-foot .cost{font-variant-numeric:tabular-nums}
+
+  /* ---------- 弹窗 / 轻提示 ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:50; padding:24px;
+    background:rgba(15,20,30,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .overlay[hidden]{display:none}
+  .dialog{
+    width:100%; max-width:400px; padding:20px 22px; background:var(--panel);
+    border-radius:10px; box-shadow:0 12px 32px rgba(15,20,30,.18);
+  }
+  .dialog-lg{max-width:520px; max-height:calc(100vh - 48px); overflow:auto}
+  .dialog h3{margin:0 0 8px; font-size:16px}
+  .dialog p{margin:0; color:var(--text-2)}
+  .dialog-foot{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+  .form.in-dialog{padding:0; margin-top:14px}
+  .form.in-dialog .prices{margin-bottom:0}
+
+  .toast{
+    position:fixed; left:50%; bottom:36px; z-index:60; transform:translateX(-50%);
+    padding:9px 16px; border-radius:6px; background:#1f2329; color:#fff; font-size:13px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+  }
+  .toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= 左侧菜单 ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16M4 12h10M4 18h7"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Test Prompt</span>
+    </div>
+
+    <nav class="menu" id="menu">
+      <ul>
+        <!-- 一级菜单：基础信息 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">基础信息</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：服务器 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">服务器</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：服务器列表 / 添加服务器 -->
+                <li>
+                  <a class="item lv3" href="list_server.html" data-page="服务器列表">
+                    <span class="dot"></span><span class="label">服务器列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="server_add.html" data-page="添加服务器">
+                    <span class="dot"></span><span class="label">添加服务器</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <!-- 二级菜单：模型 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">模型</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：模型列表 / 添加模型 -->
+                <li>
+                  <a class="item lv3" href="model_server.html" data-page="模型列表">
+                    <span class="dot"></span><span class="label">模型列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="model_add.html" data-page="添加模型">
+                    <span class="dot"></span><span class="label">添加模型</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：提示词 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">提示词</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：提示词调试 / 调试列表 -->
+            <li class="group leaf">
+              <a class="item lv2 active" href="prompt_dis_2.0.html" data-page="提示词调试">
+                <span class="caret">&#9654;</span><span class="label">提示词调试</span>
+              </a>
+            </li>
+            <li class="group leaf">
+              <a class="item lv2" href="prompt_list.html" data-page="调试列表">
+                <span class="caret">&#9654;</span><span class="label">调试列表</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：SQL -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">SQL</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：表结构 -->
+            <li class="group leaf">
+              <a class="item lv2" href="table_relation.html" data-page="表结构">
+                <span class="caret">&#9654;</span><span class="label">表结构</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">v2.0 · 原型演示</div>
+  </aside>
+
+  <!-- ================= 主内容 ================= -->
+  <main class="main">
+    <div class="page-head">
+      <div class="head-left">
+        <div class="crumb">提示词 / <b>提示词调试</b></div>
+        <button class="btn btn-primary" type="button" id="btnPickModel">选择模型</button>
+        <!-- 选好模型后出现的一行模型介绍 -->
+        <div class="model-intro" id="modelIntro" hidden>
+          <span class="mi"><em>模型名</em><b id="miModel">--</b></span>
+          <span class="mi"><em>公司名</em><b id="miCompany">--</b></span>
+          <span class="mi"><em>输入token计费</em><b id="miIn">--</b></span>
+          <span class="mi"><em>输出token计费</em><b id="miOut">--</b></span>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="hint" id="savedHint"></span>
+        <button class="btn btn-primary" type="button" id="btnSave">保存</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- ============ 左侧：配置 + 提示词 ============ -->
+      <section class="card">
+        <div class="card-head"><h2>调试配置</h2></div>
+
+        <div class="form">
+          <!-- 系统提示词 -->
+          <div class="field" id="f-sysPrompt">
+            <div class="field-head">
+              <label for="sysPrompt">系统提示词 <span class="req">*</span></label>
+              <button class="btn btn-sm" type="button" id="copySys">复制</button>
+            </div>
+            <textarea id="sysPrompt" rows="6" placeholder="设定模型的角色与行为，如：你是一名专业的客服助手…"></textarea>
+            <span class="error">请输入系统提示词。</span>
+          </div>
+
+          <!-- 用户提示词（新增 Excel 导入） -->
+          <div class="field" id="f-userPrompt">
+            <div class="field-head">
+              <label for="userPrompt">用户提示词 <span class="req">*</span></label>
+              <button class="btn btn-sm" type="button" id="btnImport">Excel 导入</button>
+            </div>
+            <textarea id="userPrompt" rows="3" placeholder="输入本轮问题"></textarea>
+            <span class="error">请输入用户提示词。</span>
+            <span class="hint">「Excel 导入」批量导入的「问题 + 标准答案」会进入下方「调试结果」表逐条调试与判定。</span>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+          </div>
+
+          <!-- 多轮对话 -->
+          <div class="field" style="gap:10px">
+            <label class="check">
+              <input type="checkbox" id="multiTurn">
+              <span>多轮对话</span>
+            </label>
+
+            <div class="round-list" id="roundList" hidden>
+              <!-- 第二轮起由脚本生成 -->
+            </div>
+
+            <button class="btn btn-sm" type="button" id="btnAddRound" hidden style="align-self:flex-start">添加一轮</button>
+          </div>
+        </div>
+
+        <div class="form-foot">
+          <button class="btn btn-primary" type="button" id="btnDebug">调试</button>
+          <button class="btn" type="button" id="btnReset">重置</button>
+        </div>
+      </section>
+
+      <!-- ============ 右侧：输出 + 指标 ============ -->
+      <section>
+        <div class="card output-card">
+          <div class="card-head">
+            <h2>模型输出</h2>
+            <div class="head-right">
+              <span class="hint" id="latency"></span>
+              <button class="btn btn-sm" type="button" id="copyOut">复制</button>
+            </div>
+          </div>
+          <div class="form output-body">
+            <textarea id="output" readonly placeholder="点击「调试」后在此显示模型输出"
+                      style="background:#fbfcfd"></textarea>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-label">输入token计费</div>
+            <div class="m-value"><span id="mIn">0.0000</span><span class="m-unit">元</span></div>
+            <div class="m-tokens" id="mInTokens">-- tokens</div>
+            <div class="m-sub" id="mInSub">-- tokens × --</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">输出token计费</div>
+            <div class="m-value"><span id="mOut">0.0000</span><span class="m-unit">元</span></div>
+            <div class="m-tokens" id="mOutTokens">-- tokens</div>
+            <div class="m-sub" id="mOutSub">-- tokens × --</div>
+          </div>
+          <div class="metric accent">
+            <div class="m-label">总费用</div>
+            <div class="m-value"><span id="mTotal">0.0000</span><span class="m-unit">元</span></div>
+            <div class="m-sub" id="mTotalSub">输入 + 输出</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ 调试结果（批量） ============ -->
+    <section class="card mt16">
+      <div class="card-head">
+        <h2>调试结果</h2>
+        <div class="head-right">
+          <button class="btn btn-sm" type="button" id="btnImportData">导入数据</button>
+          <button class="btn btn-sm" type="button" id="btnExport">导出 Excel</button>
+          <button class="btn btn-sm btn-primary" type="button" id="btnEval">评估</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-no">#</th>
+              <th>问题</th>
+              <th>标准答案</th>
+              <th>大模型结果</th>
+              <th class="col-verdict">判定结果</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-foot">
+        <span id="count"></span>
+        <span class="cost" id="batchCost"></span>
+      </div>
+    </section>
+
+    <!-- ============ 判定指标 ============ -->
+    <div class="metrics metrics-4">
+      <div class="metric">
+        <div class="m-label">用例总数</div>
+        <div class="m-value"><span id="bTotal">0</span><span class="m-unit">条</span></div>
+        <div class="m-sub" id="bTotalSub">已调试 0 条</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">判定正确</div>
+        <div class="m-value"><span id="bOk">0</span><span class="m-unit">条</span></div>
+        <div class="m-sub">标准答案一致</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">判定错误</div>
+        <div class="m-value"><span id="bBad">0</span><span class="m-unit">条</span></div>
+        <div class="m-sub" id="bBadSub">待人工判定 0 条</div>
+      </div>
+      <div class="metric accent">
+        <div class="m-label">准确率</div>
+        <div class="m-value"><span id="bRate">--</span></div>
+        <div class="m-sub">正确 ÷ 已判定</div>
+      </div>
+    </div>
+
+    <p class="hint" style="margin:10px 2px 0">
+      计费口径：按模型自身的输入/输出计费单位折算（K=1000 / 万=10000 / 十万=100000 / 百万=1000000），金额保留 4 位小数。
+      「调试」为<b>真实调用</b>所选模型。
+      「评估」用选定评估对象模型的<b>模型、api_key、系统提示词</b>对每条问题真实对话，回答写入「大模型结果」列，
+      token 与费用以接口返回的真实 usage 为准（判定模型的用量不计入本页金额）。
+      「判定结果」由<b>独立的判定模型</b>（配置见 config/judge_config.json）判定「标准答案」与「模型答案」是否一致
+      （文本含义一致 / 代码功能等价即判正确），也可下拉人工纠正，正确/错误/准确率等指标随之实时变化。
+      「导入数据」支持 .xlsx / .csv 的「问题 + 标准答案」两列（表头可选），导入后点「评估」逐条真实调试、自动判定并写入评估表；
+      「导出 Excel」输出带 BOM 的 CSV（Excel 可直接打开）。
+      「保存」先弹出「模块名称」确认框，确定后写入数据库 <b>Prompt_Test_DB</b> 的 prompt 表，并跳转到「提示词 / 调试列表」。
+    </p>
+  </main>
+</div>
+
+<!-- ================= 选择模型弹窗 ================= -->
+<div class="overlay" id="modelOverlay" hidden>
+  <div class="dialog dialog-lg" role="dialog" aria-modal="true" aria-labelledby="mdlTitle">
+    <h3 id="mdlTitle">选择模型</h3>
+    <p class="hint">服务器与模型均来自「基础信息」，base_url 随服务器自动带出。</p>
+
+    <div class="form in-dialog">
+      <div class="field" id="f-mdServer">
+        <label for="mdServer">服务器 <span class="req">*</span></label>
+        <select id="mdServer">
+          <option value="" selected disabled>请选择服务器</option>
+        </select>
+        <span class="error">请选择服务器。</span>
+      </div>
+
+      <div class="field">
+        <label for="mdBaseUrl">base_url</label>
+        <input id="mdBaseUrl" type="text" readonly placeholder="选择服务器后自动填充">
+      </div>
+
+      <div class="field" id="f-mdApiKey">
+        <label for="mdApiKey">api_key <span class="req">*</span></label>
+        <input id="mdApiKey" type="password" placeholder="请输入 api_key" autocomplete="off">
+        <span class="error">请输入 api_key。</span>
+      </div>
+
+      <div class="field" id="f-mdModel">
+        <label for="mdModel">模型 <span class="req">*</span></label>
+        <select id="mdModel">
+          <option value="" selected disabled>请先选择服务器</option>
+        </select>
+        <span class="error">请选择模型。</span>
+      </div>
+
+      <div class="prices">
+        <span class="tag hidden" id="mdTagIn">输入token计费：<em id="mdTagInVal">--</em></span>
+        <span class="tag hidden" id="mdTagOut">输出token计费：<em id="mdTagOutVal">--</em></span>
+      </div>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="mdlCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="mdlOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 保存弹窗（模块名称） ================= -->
+<div class="overlay" id="saveOverlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+    <h3 id="saveTitle">保存</h3>
+    <div class="form in-dialog">
+      <div class="field" id="f-recordName">
+        <label for="recordName">模块名称</label>
+        <input id="recordName" type="text" maxlength="50" placeholder="请输入模块名称" autocomplete="off">
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="saveCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="saveOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  /* ================= 服务器数据：来自数据库 tp_server（由 Django 模板注入） ================= */
+  var SERVERS = {{ servers_json|safe }};
+
+  /* ================= 模型数据：来自数据库 tp_model（单价 + 各自的计费单位，多带 id 用于写库） ================= */
+  var MODELS = {{ models_json|safe }};
+
+  /* 说明：不再内置示例用例；「调试结果」的数据一律由「导入数据 / Excel 导入」带入。 */
+
+  /* 由「调试列表 · 编辑」进入时，服务端注入的初始状态（无则为 null） */
+  var OPEN_SNAPSHOT = {{ open_json|safe }};
+
+  /* 由「调试列表 · 评估」进入时 = 'eval'：页面自动滚动定位到「调试结果」模块区域 */
+  var FOCUS = {{ focus_json|safe }};
+
+  /* ================= 计费单位 → token 数 ================= */
+  var UNIT_TOKENS = { 'K': 1000, '万': 10000, '十万': 100000, '百万': 1000000 };
+  function unitTokens(u) { return UNIT_TOKENS[u] || 1000000; }
+
+  /* ================= DOM ================= */
+  var toastEl   = document.getElementById('toast');
+  var tbody     = document.getElementById('tbody');
+  var countEl   = document.getElementById('count');
+  var batchCost = document.getElementById('batchCost');
+  var savedHint = document.getElementById('savedHint');
+  var modelIntro= document.getElementById('modelIntro');
+
+  var sysPrompt = document.getElementById('sysPrompt');
+  var userPrompt= document.getElementById('userPrompt');
+  var multiTurn = document.getElementById('multiTurn');
+  var roundList = document.getElementById('roundList');
+  var btnAddRound = document.getElementById('btnAddRound');
+  var output    = document.getElementById('output');
+  var latency   = document.getElementById('latency');
+  var fileInput = document.getElementById('fileInput');
+
+  var fSys  = document.getElementById('f-sysPrompt');
+  var fUser = document.getElementById('f-userPrompt');
+
+  var modelOverlay = document.getElementById('modelOverlay');
+  var mdServer  = document.getElementById('mdServer');
+  var mdBaseUrl = document.getElementById('mdBaseUrl');
+  var mdApiKey  = document.getElementById('mdApiKey');
+  var mdModel   = document.getElementById('mdModel');
+  var mdTagIn   = document.getElementById('mdTagIn');
+  var mdTagOut  = document.getElementById('mdTagOut');
+  var mdTagInVal  = document.getElementById('mdTagInVal');
+  var mdTagOutVal = document.getElementById('mdTagOutVal');
+  var fMdServer = document.getElementById('f-mdServer');
+  var fMdApiKey = document.getElementById('f-mdApiKey');
+  var fMdModel  = document.getElementById('f-mdModel');
+
+  var saveOverlay     = document.getElementById('saveOverlay');
+  var recordNameInput = document.getElementById('recordName');
+
+  /* ================= 状态 ================= */
+  var cases = [];        /* 当前用例列表 */
+  var picked = null;     /* 已确认的模型 { server, model, apiKey, baseUrl } */
+  var seq = 0;           /* 用例自增 id */
+  var lastSource = '';
+  var currentId = '';    /* 当前调试记录 id：来自「调试列表」打开，或上一次保存 */
+  var currentName = '';  /* 当前调试记录名（保存弹窗里填的「模块名称」） */
+
+  /* ================= 本地存储（保存到「调试列表」/ 再次打开恢复编辑状态） =================
+     file:// 下 Chrome / Edge 同样可用；不可用时退化为内存，仅本次会话有效。 */
+  var KEY_RECORDS = 'tp_debug_records';   /* 全部调试记录 */
+  var KEY_LAST    = 'tp_debug_last';      /* 最近一次编辑状态 */
+
+  var store = (function () {
+    var usable = true;
+    try {
+      localStorage.setItem('__tp_probe__', '1');
+      localStorage.removeItem('__tp_probe__');
+    } catch (e) { usable = false; }
+
+    var mem = {};
+    return {
+      usable: usable,
+      get: function (k) {
+        try { return usable ? localStorage.getItem(k) : (mem[k] || null); }
+        catch (e) { return mem[k] || null; }
+      },
+      set: function (k, v) {
+        try { if (usable) localStorage.setItem(k, v); else mem[k] = v; }
+        catch (e) { mem[k] = v; }
+      }
+    };
+  })();
+
+  function readRecords() {
+    try { return JSON.parse(store.get(KEY_RECORDS) || '[]') || []; } catch (e) { return []; }
+  }
+
+  function writeRecords(list) { store.set(KEY_RECORDS, JSON.stringify(list)); }
+
+  function fmtTime(d) {
+    return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' +
+           two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  }
+
+  /* 记录名：优先系统提示词摘要，其次用户提示词，最后兜底 */
+  function recordName() {
+    var s = String(sysPrompt.value || '').replace(/\s+/g, ' ').trim();
+    if (!s) s = String(userPrompt.value || '').replace(/\s+/g, ' ').trim();
+    return s ? cut(s, 16) : '未命名调试';
+  }
+
+  /* 用例统计（供保存、调试列表、评估列表共用） */
+  function batchStats() {
+    var ok = 0, bad = 0, judged = 0, run = 0, costIn = 0, costOut = 0;
+    cases.forEach(function (it) {
+      if (it.result !== '') run++;
+      if (it.verdict === '正确') { ok++; judged++; }
+      else if (it.verdict === '错误') { bad++; judged++; }
+      costIn += it.costIn;
+      costOut += it.costOut;
+    });
+    return {
+      total: cases.length, ok: ok, bad: bad, judged: judged, run: run,
+      rate: judged ? ok / judged * 100 : 0,
+      costIn: costIn, costOut: costOut
+    };
+  }
+
+  /* 当前编辑状态快照（name 由保存弹窗的「模块名称」传入，缺省回落到自动命名） */
+  function snapshot(name) {
+    var t = new Date();
+    return {
+      id: currentId || ('d-' + t.getTime()),
+      name: (name || '').trim() || currentName || recordName(),
+      savedAt: fmtTime(t),
+      server: picked ? picked.server : '',
+      modelId: picked ? picked.modelId : null,
+      model: picked ? picked.model : '',
+      baseUrl: picked ? picked.baseUrl : '',
+      apiKey: picked ? picked.apiKey : '',
+      sysPrompt: sysPrompt.value,
+      userPrompt: userPrompt.value,
+      multiTurn: multiTurn.checked,
+      rounds: rounds().map(function (el) { return el.querySelector('.round-input').value; }),
+      cases: cases.map(function (it) {
+        return { question: it.question, answer: it.answer, result: it.result, verdict: it.verdict,
+                 inTokens: it.inTokens, outTokens: it.outTokens, costIn: it.costIn, costOut: it.costOut };
+      }),
+      stats: batchStats()
+    };
+  }
+
+  /* 保存：同一条记录就地更新，新编辑则新增一条 */
+  function saveRecord(name) {
+    var snap = snapshot(name);
+    var list = readRecords();
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === snap.id) { idx = i; break; } }
+
+    if (idx > -1) list[idx] = snap; else list.unshift(snap);
+    if (list.length > 50) list = list.slice(0, 50);   /* 原型最多保留 50 条 */
+
+    writeRecords(list);
+    store.set(KEY_LAST, JSON.stringify(snap));
+    currentId = snap.id;
+    return snap;
+  }
+
+  /* 把快照回填到页面 */
+  function applySnapshot(snap) {
+    if (!snap) return false;
+
+    var srv = SERVERS.filter(function (s) { return s.name === snap.server; })[0];
+    var mok = MODELS.filter(function (m) { return m.id === snap.modelId; })[0]
+           || MODELS.filter(function (m) { return m.platform === snap.server && m.model === snap.model; })[0];
+    picked = (srv && mok) ? { server: srv.name, modelId: mok.id, model: mok.model, apiKey: snap.apiKey || '', baseUrl: srv.baseUrl } : null;
+    renderModelIntro();
+
+    sysPrompt.value = snap.sysPrompt || '';
+    userPrompt.value = snap.userPrompt || '';
+    output.value = '';
+
+    /* 多轮对话 */
+    multiTurn.checked = !!snap.multiTurn;
+    roundList.innerHTML = '';
+    roundSeq = 1;
+    if (multiTurn.checked) {
+      roundList.hidden = false;
+      btnAddRound.hidden = false;
+      (snap.rounds || []).forEach(function (v) {
+        addRound();
+        var all = rounds();
+        all[all.length - 1].querySelector('.round-input').value = v;
+      });
+      if (rounds().length === 0) addRound();
+    } else {
+      roundList.hidden = true;
+      btnAddRound.hidden = true;
+    }
+
+    /* 用例列表（由「调试列表 · 编辑/评估」进入时，来自该记录已保存的评估结果） */
+    cases = (snap.cases || []).map(function (it) {
+      seq++;
+      return {
+        id: seq, question: it.question || '', answer: it.answer || '', result: it.result || '',
+        verdict: it.verdict || '待判定', corrected: !!it.corrected, judgeError: null,
+        inTokens: it.inTokens || 0, outTokens: it.outTokens || 0,
+        costIn: it.costIn || 0, costOut: it.costOut || 0
+      };
+    });
+    lastSource = cases.length ? '已保存记录' : '';
+    currentId = snap.id || '';
+    currentName = snap.name || '';
+
+    render();
+    resetDebugMetrics();
+    fSys.classList.remove('invalid');
+    fUser.classList.remove('invalid');
+    return true;
+  }
+
+  /* 打开页面时的恢复：由服务端按 ?open=<记录id> 注入初始状态（OPEN_SNAPSHOT） */
+  function restore() {
+    if (OPEN_SNAPSHOT && applySnapshot(OPEN_SNAPSHOT)) return 'opened';
+    return '';
+  }
+
+  /* ================= 工具 ================= */
+  var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+  function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return ESC_MAP[c]; }); }
+
+  /* 金额：固定 4 位小数（K 单位下 2 位只会显示 0.00） */
+  function money(n) { return Number(n || 0).toFixed(4); }
+
+  /* 单价：最多 4 位小数，去掉无意义的末尾零 */
+  function price(n) {
+    var s = Number(n || 0).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    return s === '' ? '0' : s;
+  }
+
+  /* 单价 + 单位，如「18 元 / 百万 tokens」 */
+  function priceText(p, u) { return price(p) + ' 元 / ' + u + ' tokens'; }
+
+  function two(n) { return n < 10 ? '0' + n : String(n); }
+
+  function cut(text, n) {
+    var t = String(text || '');
+    return t.length > n ? t.slice(0, n) + '…' : t;
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+
+  /* 粗略估算 token：中文按 1 字 ≈ 1 token，英文按 4 字符 ≈ 1 token */
+  function estimateTokens(text) {
+    var t = String(text || '');
+    var cjk = (t.match(/[\u4e00-\u9fa5]/g) || []).length;
+    var other = t.length - cjk;
+    return Math.max(0, Math.round(cjk + other / 4));
+  }
+
+  function currentModel() {
+    if (!picked) return null;
+    return MODELS.filter(function (m) { return m.id === picked.modelId; })[0] || null;
+  }
+
+  function currentServer() {
+    if (!picked) return null;
+    return SERVERS.filter(function (s) { return s.name === picked.server; })[0] || null;
+  }
+
+  /* ================= 模型介绍行 ================= */
+  function renderModelIntro() {
+    var m = currentModel();
+    var s = currentServer();
+    if (!m) { modelIntro.hidden = true; return; }
+
+    modelIntro.hidden = false;
+    document.getElementById('miModel').textContent   = m.model;
+    document.getElementById('miCompany').textContent = s ? s.company : '--';
+    document.getElementById('miIn').textContent      = priceText(m.inPrice, m.inUnit);
+    document.getElementById('miOut').textContent     = priceText(m.outPrice, m.outUnit);
+  }
+
+  /* ================= 选择模型弹窗 ================= */
+  SERVERS.forEach(function (s) {
+    var opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    mdServer.appendChild(opt);
+  });
+
+  /* 模型下拉：按所选服务器过滤 */
+  function fillMdModels(serverName, keepValue) {
+    var list = MODELS.filter(function (m) { return m.platform === serverName; });
+
+    mdModel.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = '';
+    ph.disabled = true;
+    ph.selected = true;
+    ph.textContent = serverName ? (list.length ? '请选择模型' : '该服务器下暂无模型') : '请先选择服务器';
+    mdModel.appendChild(ph);
+
+    list.forEach(function (m) {
+      var opt = document.createElement('option');
+      opt.value = m.id;              /* value 用模型 id，保存时写入 prompt.model_id */
+      opt.textContent = m.model;
+      mdModel.appendChild(opt);
+    });
+
+    if (keepValue && list.some(function (m) { return m.id === keepValue; })) {
+      mdModel.value = keepValue;
+    }
+    renderMdPrices();
+  }
+
+  function pickedModel() {
+    return MODELS.filter(function (m) { return m.id === Number(mdModel.value); })[0] || null;
+  }
+
+  function renderMdPrices() {
+    var m = pickedModel();
+    if (!m) {
+      mdTagIn.classList.add('hidden');
+      mdTagOut.classList.add('hidden');
+      return;
+    }
+    mdTagIn.classList.remove('hidden');
+    mdTagOut.classList.remove('hidden');
+    mdTagInVal.textContent  = priceText(m.inPrice, m.inUnit);
+    mdTagOutVal.textContent = priceText(m.outPrice, m.outUnit);
+  }
+
+  function openModelDialog() {
+    /* 回填当前已选，便于修改 */
+    mdServer.value = picked ? picked.server : '';
+    var s = SERVERS.filter(function (x) { return x.name === mdServer.value; })[0];
+    mdBaseUrl.value = s ? s.baseUrl : '';
+    fillMdModels(mdServer.value, picked ? picked.modelId : '');
+    mdApiKey.value = picked ? (picked.apiKey || '') : '';
+    fMdServer.classList.remove('invalid');
+    fMdApiKey.classList.remove('invalid');
+    fMdModel.classList.remove('invalid');
+    modelOverlay.hidden = false;
+  }
+
+  function closeModelDialog() { modelOverlay.hidden = true; }
+
+  document.getElementById('btnPickModel').addEventListener('click', openModelDialog);
+  document.getElementById('mdlCancel').addEventListener('click', closeModelDialog);
+
+  mdServer.addEventListener('change', function () {
+    var s = SERVERS.filter(function (x) { return x.name === mdServer.value; })[0];
+    mdBaseUrl.value = s ? s.baseUrl : '';
+    fMdServer.classList.remove('invalid');
+    fillMdModels(mdServer.value, '');
+  });
+
+  mdModel.addEventListener('change', function () {
+    fMdModel.classList.remove('invalid');
+    renderMdPrices();
+  });
+
+  mdApiKey.addEventListener('input', function () { fMdApiKey.classList.remove('invalid'); });
+
+  document.getElementById('mdlOk').addEventListener('click', function () {
+    if (!mdServer.value) { fMdServer.classList.add('invalid'); mdServer.focus(); return; }
+    if (mdApiKey.value.trim() === '') { fMdApiKey.classList.add('invalid'); mdApiKey.focus(); return; }
+    if (!mdModel.value) { fMdModel.classList.add('invalid'); mdModel.focus(); return; }
+
+    var m = pickedModel();
+    picked = {
+      server: mdServer.value,
+      modelId: m ? m.id : null,
+      model: m ? m.model : mdModel.value,
+      apiKey: mdApiKey.value,
+      baseUrl: mdBaseUrl.value
+    };
+    renderModelIntro();
+    closeModelDialog();
+    toast('已选择模型：' + picked.model);
+  });
+
+  modelOverlay.addEventListener('click', function (e) { if (e.target === modelOverlay) closeModelDialog(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!modelOverlay.hidden) closeModelDialog();       /* 选择模型弹窗优先 */
+    else if (!saveOverlay.hidden) closeSaveDialog();
+  });
+
+  /* ================= Excel 导入（挂「用户提示词」） ================= */
+  document.getElementById('btnImport').addEventListener('click', function () {
+    if (fileInput) fileInput.click();
+  });
+
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    if (/\.csv$/i.test(file.name)) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var rows = parseCsv(String(reader.result || ''));
+        if (rows.length) {
+          addCases(rows, 'Excel 导入（' + file.name + '）');
+        } else {
+          toast('未解析到「问题 / 标准答案」两列，请检查表头或前两列内容');
+        }
+        fileInput.value = '';
+      };
+      reader.onerror = function () {
+        toast('文件读取失败');
+        fileInput.value = '';
+      };
+      reader.readAsText(file, 'utf-8');
+      return;
+    }
+
+    /* .xlsx 交给后端解析（标准库实现，无需额外依赖） */
+    if (/\.xlsx$/i.test(file.name)) {
+      var fd = new FormData();
+      fd.append('file', file);
+      toast('正在解析 ' + file.name + ' …');
+      fetch('/api/import/xlsx/', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.ok && j.cases && j.cases.length) {
+            addCases(j.cases, 'Excel 导入（' + file.name + '）');
+          } else {
+            toast('导入失败：' + ((j && j.error) || '未解析到数据'));
+          }
+          fileInput.value = '';
+        })
+        .catch(function () {
+          toast('导入失败，请确认服务已启动');
+          fileInput.value = '';
+        });
+      return;
+    }
+
+    /* 旧版 .xls 是二进制格式，标准库读不了，提示换格式 */
+    toast('旧版 .xls 暂不支持，请在 Excel 里另存为 .xlsx 或 CSV 后再导入');
+    fileInput.value = '';
+  });
+
+  /* 极简 CSV 解析：识别含「问题 / 用户提示词」与「标准答案」的表头，否则按前两列取数 */
+  function parseCsv(text) {
+    var lines = text.replace(/\r\n?/g, '\n').split('\n').filter(function (l) { return l.trim() !== ''; });
+    if (!lines.length) return [];
+
+    function split(line) {
+      var out = [], cur = '', inQuote = false;
+      for (var i = 0; i < line.length; i++) {
+        var c = line.charAt(i);
+        if (c === '"') {
+          if (inQuote && line.charAt(i + 1) === '"') { cur += '"'; i++; }
+          else inQuote = !inQuote;
+        } else if (c === ',' && !inQuote) {
+          out.push(cur); cur = '';
+        } else {
+          cur += c;
+        }
+      }
+      out.push(cur);
+      return out.map(function (v) { return v.trim(); });
+    }
+
+    var head = split(lines[0]);
+    var qi = head.indexOf('问题');
+    if (qi === -1) qi = head.indexOf('用户提示词');
+    var ai = head.indexOf('标准答案');
+    if (ai === -1) ai = head.indexOf('答案');
+    var start = 0;
+    if (qi === -1 || ai === -1) { qi = 0; ai = 1; }
+    else { start = 1; }
+
+    var rows = [];
+    for (var k = start; k < lines.length; k++) {
+      var cells = split(lines[k]);
+      var q = cells[qi] || '';
+      var a = cells[ai] || '';
+      if (q) rows.push({ question: q, answer: a });
+    }
+    return rows;
+  }
+
+  /* 「调试结果」模块的「导入数据」：与「Excel 导入」共用同一个文件选择器，
+     把「问题 + 标准答案」两列导入下方表格（用例一律由导入带入，不再内置示例）。 */
+  document.getElementById('btnImportData').addEventListener('click', function () {
+    if (fileInput) fileInput.click();
+  });
+
+  function addCases(list, source) {
+    var added = 0;
+    list.forEach(function (it) {
+      var q = String(it.question || '').trim();
+      var a = String(it.answer || '').trim();
+      if (!q) return;
+      seq++;
+      cases.push({
+        id: seq, question: q, answer: a,
+        result: '', verdict: '待判定', corrected: false, judgeError: null,
+        inTokens: 0, outTokens: 0, costIn: 0, costOut: 0
+      });
+      added++;
+    });
+    if (!added) { toast('没有可导入的用例'); return; }
+    if (source) lastSource = source;
+    render();
+    toast('已导入 ' + added + ' 条用例（' + source + '）');
+  }
+
+  /* ================= 批量评估：逐条真实调用大模型 + 模型自动判定 =================
+     由「评估」按钮触发。一条用例 = 两次调用：先要答案，再让模型当裁判判对错
+     （都在后端 /api/llm/batch/ 内完成）。前端按批（每批 BATCH_SIZE 条）顺序请求，
+     批次内后端并发 —— 这样「上百条用例」既能跑得动，进度也能小步回显、随时可停。
+     跑完后回调 onDone（由「评估」继续执行「写入评估表」）。 */
+  var BATCH_SIZE = 5;
+
+  /* 把后端单条结果落到用例上：真实答案（评估对象模型输出）/ 判定（判定模型）/ 真实 token */
+  function applyResult(item, r) {
+    var m = currentModel();
+    item.result = r.m_answer || '';
+    item.error  = r.error || null;          /* 生成答案失败 */
+    item.judgeError = r.judge_error || null; /* 判定失败（答案本身仍保留） */
+
+    if (r.error)                 item.verdict = '待判定';   /* 调用失败 → 交给人工判定 */
+    else if (r.is_true === 1)    item.verdict = '正确';     /* 判定模型：含义一致 / 功能等价 */
+    else if (r.is_true === 0)    item.verdict = '错误';
+    else                         item.verdict = '待判定';
+
+    item.corrected = false;   /* 重新调试 = 回到模型判定 */
+
+    /* 计费只按「评估对象模型」的真实用量折算（判定模型用量单列，不计入本页金额） */
+    item.inTokens  = r.in_tokens  || 0;
+    item.outTokens = r.out_tokens || 0;
+    var perIn  = m ? unitTokens(m.inUnit)  : 1000000;
+    var perOut = m ? unitTokens(m.outUnit) : 1000000;
+    item.costIn  = m ? item.inTokens  / perIn  * m.inPrice  : 0;
+    item.costOut = m ? item.outTokens / perOut * m.outPrice : 0;
+  }
+
+  function runBatch(onDone) {
+    if (!needReady()) return;
+    if (!cases.length) { toast('请先点「导入数据」导入用例'); return; }
+
+    /* 只跑还没调试过的；若全部已调试，则整体重跑一遍 */
+    var targets = cases.filter(function (it) { return it.result === ''; });
+    if (!targets.length) targets = cases.slice();
+
+    var btn = document.getElementById('btnEval');
+    var total = targets.length;
+    var done = 0;
+    btn.disabled = true;
+    countEl.textContent = '调试中 0 / ' + total + ' …';
+
+    function step(i) {
+      if (i >= targets.length) {
+        btn.disabled = false;
+        render();
+        countEl.textContent = '共 ' + cases.length + ' 条用例' + (lastSource ? '，来源：' + lastSource : '');
+        /* 判定失败的条目（答案已拿到，只是模型判定没成功）交给「评估」统一提示 */
+        if (onDone) onDone(targets.filter(function (it) { return it.judgeError; }));
+        return;
+      }
+
+      var chunk = targets.slice(i, i + BATCH_SIZE);
+      fetch('/api/llm/batch/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_id: picked ? picked.modelId : null,
+          api_key: picked ? picked.apiKey : '',
+          sys_prompt: sysPrompt.value,
+          judge: true,
+          concurrency: BATCH_SIZE,
+          cases: chunk.map(function (it) { return { question: it.question, answer: it.answer }; })
+        })
+      }).then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok) {
+            btn.disabled = false;
+            render();
+            toast('评估失败：' + ((j && j.error) || '未知错误'));
+            return;
+          }
+          (j.results || []).forEach(function (r, k) { applyResult(chunk[k], r); });
+          done += chunk.length;
+          countEl.textContent = '调试中 ' + done + ' / ' + total + ' …';
+          render();
+          step(i + BATCH_SIZE);
+        })
+        .catch(function () {
+          btn.disabled = false;
+          render();
+          toast('评估中断，请确认服务已启动');
+        });
+    }
+
+    step(0);
+  }
+
+  function needReady() {
+    if (!picked) { toast('请先选择模型'); openModelDialog(); return false; }
+    if (sysPrompt.value.trim() === '') { fSys.classList.add('invalid'); sysPrompt.focus(); toast('请输入系统提示词'); return false; }
+    return true;
+  }
+
+  sysPrompt.addEventListener('input', function () { fSys.classList.remove('invalid'); });
+
+  /* ================= 渲染 ================= */
+  function verdictClass(v) {
+    if (v === '正确') return ' ok';
+    if (v === '错误') return ' bad';
+    return '';
+  }
+
+  function verdictOptions(cur) {
+    return ['待判定', '正确', '错误'].map(function (v) {
+      return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + v + '</option>';
+    }).join('');
+  }
+
+  function render() {
+    if (!cases.length) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="5">还没有用例，请点「导入数据」导入「问题 + 标准答案」两列</td></tr>';
+    } else {
+      tbody.innerHTML = cases.map(function (it, i) {
+        var hasResult = it.result !== '';
+        var shown = hasResult ? it.result : (it.error ? '⚠ ' + it.error : '尚未调试');
+        return '<tr data-idx="' + i + '">' +
+          '<td class="col-no">' + (i + 1) + '</td>' +
+          '<td class="col-text" title="' + esc(it.question) + '">' + esc(it.question) + '</td>' +
+          '<td class="col-text" title="' + esc(it.answer) + '">' + esc(it.answer) + '</td>' +
+          '<td class="col-text ' + (hasResult ? 'result-text' : 'result-empty') + '" title="' + esc(shown) + '">' +
+            esc(shown) +
+          '</td>' +
+          '<td class="col-verdict">' +
+            '<select class="verdict-sel' + verdictClass(it.verdict) + '" data-verdict="' + i + '" aria-label="判定结果"' +
+              (it.judgeError ? ' title="判定失败：' + esc(it.judgeError) + '"' : '') + '>' +
+              verdictOptions(it.verdict) +
+            '</select>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    countEl.textContent = '共 ' + cases.length + ' 条用例' + (lastSource ? '，来源：' + lastSource : '');
+    renderMetrics();
+  }
+
+  /* 人为纠正判定结果 → 指标同步变化，并标记该条为「人为纠正」（写入 evaluate.is_correct） */
+  tbody.addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-verdict]');
+    if (!sel) return;
+    var i = Number(sel.getAttribute('data-verdict'));
+    cases[i].verdict = sel.value;
+    cases[i].corrected = true;
+    sel.className = 'verdict-sel' + verdictClass(sel.value);
+    renderMetrics();
+    toast('第 ' + (i + 1) + ' 条判定已纠正为「' + sel.value + '」');
+  });
+
+  /* ================= 指标 ================= */
+  function renderMetrics() {
+    var total = cases.length, ok = 0, bad = 0, judged = 0, run = 0;
+    var batchIn = 0, batchOut = 0;
+
+    cases.forEach(function (it) {
+      if (it.result !== '') run++;
+      if (it.verdict === '正确') { ok++; judged++; }
+      else if (it.verdict === '错误') { bad++; judged++; }
+      batchIn  += it.costIn;
+      batchOut += it.costOut;
+    });
+
+    document.getElementById('bTotal').textContent = total;
+    document.getElementById('bTotalSub').textContent = '已调试 ' + run + ' 条';
+    document.getElementById('bOk').textContent = ok;
+    document.getElementById('bBad').textContent = bad;
+    document.getElementById('bBadSub').textContent = '待人工判定 ' + (total - judged) + ' 条';
+    document.getElementById('bRate').textContent = judged ? (ok / judged * 100).toFixed(1) + '%' : '--';
+
+    batchCost.textContent = '本批计费：输入 ' + money(batchIn) + ' 元 · 输出 ' + money(batchOut) +
+                            ' 元 · 合计 ' + money(batchIn + batchOut) + ' 元';
+  }
+
+  /* 单次「调试」的指标（v1 口径不变，仅金额改 4 位小数、单价带单位） */
+  function resetDebugMetrics() {
+    document.getElementById('mIn').textContent  = '0.0000';
+    document.getElementById('mOut').textContent = '0.0000';
+    document.getElementById('mTotal').textContent = '0.0000';
+    document.getElementById('mInTokens').textContent  = '-- tokens';
+    document.getElementById('mOutTokens').textContent = '-- tokens';
+    document.getElementById('mInSub').textContent  = '-- tokens × --';
+    document.getElementById('mOutSub').textContent = '-- tokens × --';
+    document.getElementById('mTotalSub').textContent = '输入 + 输出';
+    latency.textContent = '';
+  }
+
+  /* ================= 单次调试（v1 行为） ================= */
+  function allPrompts() {
+    var arr = [userPrompt.value];
+    if (multiTurn.checked) {
+      rounds().forEach(function (el) {
+        arr.push(el.querySelector('.round-input').value);
+      });
+    }
+    return arr;
+  }
+
+  /* 单次「调试」：真实调用所选模型，token / 成本以服务端返回的真实 usage 为准 */
+  document.getElementById('btnDebug').addEventListener('click', function () {
+    if (!needReady()) return;
+    if (userPrompt.value.trim() === '') { fUser.classList.add('invalid'); userPrompt.focus(); toast('请输入用户提示词'); return; }
+
+    var prompts = allPrompts();
+    var btn = this;
+    btn.disabled = true;
+    resetDebugMetrics();
+    output.value = '⏳ 正在调用「' + (picked ? picked.model : '模型') + '」…请稍候';
+    latency.textContent = '';
+
+    fetch('/api/llm/chat/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_id: picked ? picked.modelId : null,
+        api_key: picked ? picked.apiKey : '',
+        sys_prompt: sysPrompt.value,
+        user_prompts: prompts
+      })
+    }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        btn.disabled = false;
+        if (!j || !j.ok) {
+          output.value = '';
+          toast('调用失败：' + ((j && j.error) || '未知错误'));
+          return;
+        }
+
+        var m = currentModel();
+        var usage = j.usage || {};
+        /* 服务端没回 usage（少数网关）时才回落为估算，并在耗时后标注 */
+        var realUsage = !!(usage.in || usage.out);
+        var inTokens  = usage.in  || estimateTokens(sysPrompt.value + '\n' + prompts.join('\n'));
+        var outTokens = usage.out || estimateTokens(j.content || '');
+
+        output.value = j.content || '（模型返回了空内容）';
+        latency.textContent = '耗时 ' + (j.latency_ms || 0) + ' ms · ' +
+                              (realUsage ? '真实 usage' : 'token 为估算');
+
+        var perIn  = m ? unitTokens(m.inUnit)  : 1000000;
+        var perOut = m ? unitTokens(m.outUnit) : 1000000;
+        var costIn  = m ? inTokens  / perIn  * m.inPrice  : 0;
+        var costOut = m ? outTokens / perOut * m.outPrice : 0;
+
+        document.getElementById('mIn').textContent  = money(costIn);
+        document.getElementById('mOut').textContent = money(costOut);
+        document.getElementById('mTotal').textContent = money(costIn + costOut);
+
+        document.getElementById('mInTokens').textContent  = inTokens + ' tokens';
+        document.getElementById('mOutTokens').textContent = outTokens + ' tokens';
+
+        document.getElementById('mInSub').textContent =
+          inTokens + ' tokens × ' + (m ? priceText(m.inPrice, m.inUnit) : '--');
+        document.getElementById('mOutSub').textContent =
+          outTokens + ' tokens × ' + (m ? priceText(m.outPrice, m.outUnit) : '--');
+        document.getElementById('mTotalSub').textContent =
+          '输入 ' + money(costIn) + ' + 输出 ' + money(costOut) + ' 元';
+
+        toast('调试完成（' + (j.model || '') + '，耗时 ' + (j.latency_ms || 0) + ' ms）');
+      })
+      .catch(function () {
+        btn.disabled = false;
+        output.value = '';
+        toast('调用失败，请确认服务已启动');
+      });
+  });
+
+  /* ================= 多轮对话 ================= */
+  var roundSeq = 1;   /* 第一轮即「用户提示词」，新增从第二轮开始 */
+
+  function addRound() {
+    roundSeq++;
+    var n = roundSeq;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'round';
+    wrap.setAttribute('data-round', n);
+
+    var head = document.createElement('div');
+    head.className = 'round-head';
+    head.innerHTML = '<span>第' + n + '轮用户提示词</span>' +
+                     '<button class="remove" type="button">删除</button>';
+
+    var ta = document.createElement('textarea');
+    ta.rows = 3;
+    ta.className = 'round-input';
+    ta.placeholder = '输入第' + n + '轮问题';
+
+    head.querySelector('.remove').addEventListener('click', function () {
+      wrap.parentNode.removeChild(wrap);
+      renumber();
+    });
+
+    wrap.appendChild(head);
+    wrap.appendChild(ta);
+    roundList.appendChild(wrap);
+    ta.focus();
+  }
+
+  function rounds() {
+    return Array.prototype.slice.call(roundList.querySelectorAll('.round'));
+  }
+
+  /* 按 DOM 顺序重排「第N轮」标题与序号 */
+  function renumber() {
+    rounds().forEach(function (el, i) {
+      var n = i + 2;                       /* 第一轮是「用户提示词」 */
+      el.setAttribute('data-round', n);
+      el.querySelector('.round-head span').textContent = '第' + n + '轮用户提示词';
+      el.querySelector('.round-input').placeholder = '输入第' + n + '轮问题';
+    });
+    roundSeq = rounds().length + 1;
+    if (rounds().length === 0) addRound();  /* 至少保留一轮附加对话 */
+  }
+
+  multiTurn.addEventListener('change', function () {
+    if (multiTurn.checked) {
+      roundList.hidden = false;
+      btnAddRound.hidden = false;
+      if (rounds().length === 0) addRound();
+    } else {
+      roundList.hidden = true;
+      btnAddRound.hidden = true;
+      roundList.innerHTML = '';
+      roundSeq = 1;
+    }
+    resetDebugMetrics();
+  });
+
+  btnAddRound.addEventListener('click', addRound);
+
+  /* ================= 复制 ================= */
+  function copyText(text, label) {
+    if (!text) { toast(label + '为空，无可复制内容'); return; }
+
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast(label + '已复制'); }
+      catch (err) { toast('复制失败，请手动选择内容'); }
+      document.body.removeChild(ta);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(function () { toast(label + '已复制'); })
+        .catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  document.getElementById('copySys').addEventListener('click', function () {
+    copyText(sysPrompt.value, '系统提示词');
+  });
+
+  document.getElementById('copyOut').addEventListener('click', function () {
+    copyText(output.value, '模型输出');
+  });
+
+  /* ================= 导出 Excel（带 BOM 的 CSV，Excel 可直接打开） ================= */
+  function csvCell(v) {
+    var s = String(v == null ? '' : v).replace(/"/g, '""');
+    return '"' + s + '"';
+  }
+
+  function stamp() {
+    var d = new Date();
+    return '' + d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate()) + '_' + two(d.getHours()) + two(d.getMinutes());
+  }
+
+  function exportExcel() {
+    if (!cases.length) { toast('暂无可导出的用例'); return; }
+
+    var head = ['序号', '问题', '标准答案', '大模型结果', '判定结果'];
+    var lines = [head.map(csvCell).join(',')];
+    cases.forEach(function (it, i) {
+      lines.push([i + 1, it.question, it.answer, it.result, it.verdict].map(csvCell).join(','));
+    });
+
+    var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '提示词调试结果_' + stamp() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+
+    toast('已导出 ' + cases.length + ' 条到 Excel（CSV）');
+  }
+
+  document.getElementById('btnExport').addEventListener('click', exportExcel);
+
+  /* ================= 评估：先批量真实调试 + 自动判定，再把「调试结果」逐条写入评估表 evaluate =================
+     点击「评估」的完整动作：
+       1) 对「调试结果」里的每条问题，用**选定评估对象的模型 + api_key + 系统提示词**
+          与模型真实对话（用户提示词 = 该问题），结果写入「大模型结果」列；
+       2) 再由**独立的判定模型**（config/judge_config.json 配置）判定
+          「标准答案 vs 模型答案」是否一致（文本含义一致 / 代码功能等价即判正确）；
+       3) 判定结果可在表格里下拉人工纠正，准确率随之实时重算；
+       4) 全部跑完后，把逐条结果写入评估表 evaluate。
+     评估口径（与需求口径一致）：
+       question   问题        = 调试结果「问题」列
+       answer     标准答案    = 调试结果「标准答案」列
+       m_answer   模型答案    = 调试结果「大模型结果」列
+       is_true    模型判断    = 1 正确 / 0 错误 / 空 = 待判定
+       is_correct 是否人为纠正 = 1 人为纠正（该条判定被人工下拉改过）/ 0 模型答案
+     评估结果要挂到具体调试记录上，故写入前需先「保存」拿到记录 id（prompt_id）。 */
+  function verdictFlag(v) {
+    if (v === '正确') return 1;
+    if (v === '错误') return 0;
+    return null;
+  }
+
+  document.getElementById('btnEval').addEventListener('click', function () {
+    if (!cases.length) {
+      toast('「调试结果」还没有用例，请先点「导入数据」导入用例后再评估');
+      return;
+    }
+    if (!needReady()) return;
+
+    /* 一、批量真实调试（评估对象模型出答案）+ 独立判定模型判对错 */
+    runBatch(function (judgeFails) {
+      var st   = batchStats();
+      var rate = st.judged ? (st.ok / st.judged * 100).toFixed(1) + '%' : '--';
+
+      /* 判定失败（答案已拿到，只是判定模型没判成功）→ 并入提示，原因看「判定结果」列的悬停说明 */
+      var jw = '';
+      if (judgeFails && judgeFails.length) {
+        jw = '；' + judgeFails.length + ' 条判定失败：' + (judgeFails[0].judgeError || '未知原因');
+      }
+
+      /* 二、逐条写入评估表（需先「保存」拿到记录 id） */
+      var pid = /^\d+$/.test(String(currentId)) ? Number(currentId) : null;
+      if (!pid) {
+        toast('评估完成：准确率 ' + rate + jw + '；请先「保存」后再点「评估」写入评估表');
+        return;
+      }
+
+      var rows = cases.map(function (it) {
+        return {
+          question: it.question || '',
+          answer: it.answer || '',
+          m_answer: it.result || '',
+          is_true: verdictFlag(it.verdict),
+          is_correct: it.corrected ? 1 : 0
+        };
+      });
+
+      fetch('/api/evaluate/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt_id: pid, rows: rows })
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.ok) {
+          savedHint.textContent = '已评估 · ' + res.saved + ' 条';
+          toast('评估完成：' + res.saved + ' 条用例已写入评估表，准确率 ' + rate + jw);
+        } else {
+          toast((res && res.error) ? res.error : '评估失败');
+        }
+      }).catch(function () {
+        toast('评估失败，请确认服务已启动');
+      });
+    });
+  });
+
+  /* ================= 保存（弹窗填「模块名称」→ 写入本地库 Prompt Test DB，并出现在「调试列表」） ================= */
+  function openSaveDialog() {
+    recordNameInput.value = currentName || recordName();   /* 预填，直接「确定」即可 */
+    saveOverlay.hidden = false;
+    recordNameInput.focus();
+    recordNameInput.select();
+  }
+
+  function closeSaveDialog() { saveOverlay.hidden = true; }
+
+  document.getElementById('btnSave').addEventListener('click', function () {
+    if (!needReady()) return;
+    if (userPrompt.value.trim() === '' && !cases.length) {
+      fUser.classList.add('invalid'); userPrompt.focus();
+      toast('请输入用户提示词，或先导入用例');
+      return;
+    }
+    openSaveDialog();
+  });
+
+  document.getElementById('saveOk').addEventListener('click', function () {
+    var nm = recordNameInput.value.trim() || recordName();   /* 留空则回落到自动命名 */
+
+    /* 用户提示词 1~6：第一轮=「用户提示词」，多轮对话依次补 2~6 轮 */
+    var prompts = [userPrompt.value];
+    if (multiTurn.checked) {
+      rounds().forEach(function (el) { prompts.push(el.querySelector('.round-input').value); });
+    }
+    var filled = prompts.filter(function (v) { return String(v).trim() !== ''; });
+
+    var payload = {
+      /* 已保存过的记录（从「调试列表」打开、或上一次保存后记下）带上 id →
+         后端就地更新同一条；否则新增。对齐原型 saveRecord() 的口径。 */
+      id: /^\d+$/.test(String(currentId)) ? Number(currentId) : null,
+      model_id: picked ? picked.modelId : null,
+      prompt_name: nm,
+      api_key: picked ? (picked.apiKey || '') : '',
+      sys_prompt: sysPrompt.value,
+      user_prompt1: prompts[0] || '',
+      user_prompt2: prompts[1] || '',
+      user_prompt3: prompts[2] || '',
+      user_prompt4: prompts[3] || '',
+      user_prompt5: prompts[4] || '',
+      user_prompt6: prompts[5] || '',
+      u_promt_count: Math.min(filled.length, 6)
+    };
+
+    var okBtn = document.getElementById('saveOk');
+    okBtn.disabled = true;
+    fetch('/api/prompt/save/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res && res.ok) {
+        currentId = String(res.id);      /* 记下记录 id：再次保存即就地更新 */
+        currentName = payload.prompt_name;
+        closeSaveDialog();
+        savedHint.textContent = '已保存，正在跳转调试列表…';
+        window.location.href = '/prompt_list.html';
+      } else {
+        okBtn.disabled = false;
+        toast((res && res.error) ? res.error : '保存失败');
+      }
+    }).catch(function () {
+      okBtn.disabled = false;
+      toast('保存失败，请确认服务已启动');
+    });
+  });
+
+  document.getElementById('saveCancel').addEventListener('click', closeSaveDialog);
+  saveOverlay.addEventListener('click', function (e) { if (e.target === saveOverlay) closeSaveDialog(); });
+
+  /* ================= 重置 / 清空 ================= */
+  document.getElementById('btnReset').addEventListener('click', function () {
+    picked = null;
+    renderModelIntro();
+    sysPrompt.value = '';
+    userPrompt.value = '';
+    multiTurn.checked = false;
+    multiTurn.dispatchEvent(new Event('change'));
+    output.value = '';
+    cases = [];
+    lastSource = '';
+    currentId = '';
+    currentName = '';
+    savedHint.textContent = '';
+    render();
+    resetDebugMetrics();
+    fSys.classList.remove('invalid');
+    fUser.classList.remove('invalid');
+    store.set(KEY_LAST, '');   /* 重置后刷新不再自动恢复 */
+    sysPrompt.focus();
+    toast('已重置当前编辑状态（已保存的记录仍保留在「调试列表」）');
+  });
+
+  /* ================= 左侧菜单 ================= */
+  document.getElementById('menu').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.item');
+    if (!btn) return;
+
+    if (btn.hasAttribute('data-toggle')) {
+      btn.parentElement.classList.toggle('open');
+      return;
+    }
+
+    var items = document.querySelectorAll('.item');
+    Array.prototype.forEach.call(items, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (btn.classList.contains('lv1')) {
+      if (btn.parentElement.classList.contains('leaf')) {
+        toast('已是「' + btn.getAttribute('data-page') + '」页面');
+      } else {
+        btn.parentElement.classList.add('open');
+      }
+      return;
+    }
+
+    toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+  });
+
+  /* ================= 初始化 ================= */
+  renderModelIntro();
+  render();
+  resetDebugMetrics();
+
+  /* 「调试结果」所在的那个 section：按标题文本定位，
+     不新增 id / class，避免改动原型 DOM 结构。 */
+  function evalSection() {
+    var secs = document.querySelectorAll('section.card');
+    for (var i = 0; i < secs.length; i++) {
+      var h = secs[i].querySelector('h2');
+      if (h && h.textContent.trim() === '调试结果') return secs[i];
+    }
+    return null;
+  }
+
+  var restored = restore();
+  var focusEval = (FOCUS === 'eval');
+
+  /* 由「调试列表 · 评估」进入：自动定位到「调试结果」模块区域 */
+  if (focusEval) {
+    var sec = evalSection();
+    if (sec) sec.scrollIntoView({ block: 'start' });
+  }
+
+  if (restored === 'opened') {
+    toast(focusEval
+      ? '已打开调试记录并定位到「调试结果」：' + (currentName || recordName())
+      : '已打开调试记录：' + (currentName || recordName()));
+  } else if (focusEval) {
+    toast('已定位到「调试结果」');
+  }
+
+  /* 供自动化验收 / 手动调试使用
+     页面已去掉「全部调试」按钮与表格操作列，runAll / clearCases 仅在控制台或断言脚本里调用。 */
+  window.__TP__ = {
+    store: store,
+    snapshot: snapshot,
+    restore: restore,
+    readRecords: readRecords,
+    writeRecords: writeRecords,
+    stats: batchStats,
+    getCases: function () { return cases; },
+    focus: function () { return FOCUS; },
+    runAll: function () { runBatch(); return cases.length; },
+    clearCases: function () { cases = []; lastSource = ''; render(); }
+  };
+})();
+</script>
+</body>
+</html>

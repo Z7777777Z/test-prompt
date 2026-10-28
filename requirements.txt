@@ -1,0 +1,5 @@
+Django==6.1.2
+gunicorn>=23.0.0
+# 「表结构」页连接真实数据库所需驱动（均为纯 Python，无需编译）
+pymysql>=1.1.0        # MySQL / MariaDB
+pg8000>=1.30.0        # PostgreSQL

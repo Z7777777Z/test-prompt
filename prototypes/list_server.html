@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Prompt · 服务器列表</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e8eaee; --line-soft:#f0f2f5;
+    --text:#1f2329; --text-2:#5b6371; --text-3:#9aa1ad;
+    --brand:#2c6bed; --brand-soft:#eef4ff;
+    --danger:#e5484d; --danger-soft:#fdf0f0; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .app{display:flex;min-height:100vh}
+
+  /* ---------- 左侧菜单 ---------- */
+  .sidebar{
+    width:236px; flex:0 0 236px; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; height:60px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-logo{
+    width:28px; height:28px; border-radius:7px; flex:0 0 auto; color:#fff;
+    background:linear-gradient(135deg,#2c6bed,#5b9bff);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.2px}
+
+  .menu{padding:10px 8px; overflow:auto; flex:1}
+  .menu ul{list-style:none; margin:0; padding:0}
+  .item{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 10px; border:0; border-radius:6px; background:transparent;
+    color:var(--text-2); font:inherit; text-align:left; cursor:pointer;
+  }
+  .item:hover{background:#f4f5f8; color:var(--text)}
+  .item .caret{
+    width:14px; flex:0 0 14px; color:var(--text-3); font-size:10px;
+    text-align:center; transition:transform .15s ease;
+  }
+  .group.open > .item .caret{transform:rotate(90deg)}
+  .group.leaf > .item .caret{visibility:hidden}
+  .item .label{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lv1{font-size:14px; font-weight:600; color:var(--text)}
+  .lv2{margin-left:8px; font-size:13.5px}
+  .lv3{margin-left:22px; font-size:13px; color:var(--text-3); padding:6px 10px}
+  .lv3 .dot{width:4px; height:4px; border-radius:50%; background:#cdd2db; flex:0 0 4px}
+  .lv3:hover .dot, .lv3.active .dot{background:var(--brand)}
+  .item.active{background:var(--brand-soft); color:var(--brand)}
+  .menu a.item{text-decoration:none}
+  .sub{display:none}
+  .group.open > .sub{display:block}
+  .sidebar-foot{padding:12px 18px; border-top:1px solid var(--line); color:var(--text-3); font-size:12px}
+
+  /* ---------- 主区 ---------- */
+  .main{flex:1; min-width:0; padding:20px 24px 40px}
+  .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px}
+  .crumb{color:var(--text-3); font-size:13px}
+  .crumb b{color:var(--text); font-weight:600; font-size:15px}
+  .actions{display:flex; gap:8px}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:32px; padding:0 14px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{background:#fafbfc; border-color:#d9dde3}
+  a.btn, a.btn:hover{text-decoration:none}
+  .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn-primary:hover{background:#255ed6; border-color:#255ed6}
+  .btn-danger{color:var(--danger); border-color:#f2c9cb}
+  .btn-danger:hover:not(:disabled){background:var(--danger-soft); border-color:#ecb4b6}
+  .btn:disabled{color:#c3c8d1; border-color:var(--line); background:#fafbfc; cursor:not-allowed}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+
+  .searchbar{
+    display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
+    padding:16px 18px; border-bottom:1px solid var(--line-soft);
+  }
+  .field{display:flex; flex-direction:column; gap:6px}
+  .field label{font-size:13px; color:var(--text-2)}
+  .field input{
+    width:240px; height:32px; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit;
+  }
+  .field input::placeholder{color:var(--text-3)}
+  .field input:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .search-actions{display:flex; gap:8px}
+
+  /* ---------- 表格 ---------- */
+  .table-wrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; min-width:760px}
+  th,td{padding:12px 18px; text-align:left; font-weight:400; border-bottom:1px solid var(--line-soft)}
+  thead th{
+    color:var(--text-2); font-size:13px; font-weight:600;
+    background:#fbfcfd; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody tr:hover{background:#fafbfd}
+  tbody tr.selected{background:var(--brand-soft)}
+  tbody tr:last-child td{border-bottom:0}
+  .col-check{width:44px; padding-right:0}
+  .col-check input{width:15px; height:15px; vertical-align:-2px; accent-color:var(--brand); cursor:pointer}
+  .col-url{color:var(--text-2); font-size:13px; word-break:break-all}
+  .empty{padding:48px 0; text-align:center; color:var(--text-3)}
+  .table-foot{padding:12px 18px; background:#fbfcfd; color:var(--text-3); font-size:13px}
+
+  /* ---------- 弹窗 / 轻提示 ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:50; padding:24px;
+    background:rgba(15,20,30,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .overlay[hidden]{display:none}
+  .dialog{
+    width:100%; max-width:400px; padding:20px 22px; background:var(--panel);
+    border-radius:10px; box-shadow:0 12px 32px rgba(15,20,30,.18);
+  }
+  .dialog h3{margin:0 0 8px; font-size:16px}
+  .dialog p{margin:0; color:var(--text-2)}
+  .dialog-foot{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+  .toast{
+    position:fixed; left:50%; bottom:36px; z-index:60; transform:translateX(-50%);
+    padding:9px 16px; border-radius:6px; background:#1f2329; color:#fff; font-size:13px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+  }
+  .toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= 左侧菜单 ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16M4 12h10M4 18h7"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Test Prompt</span>
+    </div>
+
+    <nav class="menu" id="menu">
+      <ul>
+        <!-- 一级菜单：基础信息 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">基础信息</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：服务器 -->
+            <li class="group open">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">服务器</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：服务器列表 / 添加服务器 -->
+                <li>
+                  <button class="item lv3 active" type="button" data-page="服务器列表">
+                    <span class="dot"></span><span class="label">服务器列表</span>
+                  </button>
+                </li>
+                <li>
+                  <a class="item lv3" href="server_add.html" data-page="添加服务器">
+                    <span class="dot"></span><span class="label">添加服务器</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <!-- 二级菜单：模型 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">模型</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：模型列表 / 添加模型 -->
+                <li>
+                  <a class="item lv3" href="model_server.html" data-page="模型列表">
+                    <span class="dot"></span><span class="label">模型列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="model_add.html" data-page="添加模型">
+                    <span class="dot"></span><span class="label">添加模型</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：提示词调试 -->
+        <li class="group leaf">
+          <a class="item lv1" href="prompt_dis.html" data-page="提示词调试">
+            <span class="caret">&#9654;</span><span class="label">提示词调试</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">v0.1 · 原型演示</div>
+  </aside>
+
+  <!-- ================= 主内容 ================= -->
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">基础信息 / 服务器 / <b>服务器列表</b></div>
+      <div class="actions">
+        <button class="btn btn-danger" id="btnDelete" type="button" disabled>删除</button>
+        <a class="btn btn-primary" id="btnAdd" href="server_add.html">添加</a>
+      </div>
+    </div>
+
+    <section class="card">
+      <!-- 搜索区 -->
+      <form class="searchbar" id="searchForm">
+        <div class="field">
+          <label for="kw">平台/官方名</label>
+          <input id="kw" type="text" placeholder="请输入平台/官方名" autocomplete="off">
+        </div>
+        <div class="search-actions">
+          <button class="btn btn-primary" type="submit">搜索</button>
+          <button class="btn" type="button" id="btnReset">重置</button>
+        </div>
+      </form>
+
+      <!-- 列表 -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="checkAll" aria-label="全选"></th>
+              <th>平台/官方名</th>
+              <th>公司名</th>
+              <th>api网址(base_url)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-foot"><span id="count"></span></div>
+    </section>
+  </main>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h3 id="dlgTitle">删除确认</h3>
+    <p id="dlgText"></p>
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="dlgCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="dlgOk">确定删除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  /* ---------- 模拟数据 ---------- */
+  var servers = [
+    { id: 1,  name: 'OpenAI',        company: 'OpenAI',     url: 'https://api.openai.com/v1' },
+    { id: 2,  name: 'Anthropic',     company: 'Anthropic',  url: 'https://api.anthropic.com/v1' },
+    { id: 3,  name: 'Google Gemini', company: 'Google',     url: 'https://generativelanguage.googleapis.com/v1beta' },
+    { id: 4,  name: 'DeepSeek',      company: '深度求索',    url: 'https://api.deepseek.com/v1' },
+    { id: 5,  name: '阿里云百炼',      company: '阿里巴巴',    url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+    { id: 6,  name: '智谱AI',         company: '智谱华章',    url: 'https://open.bigmodel.cn/api/paas/v4' },
+    { id: 7,  name: 'Moonshot',      company: '月之暗面',    url: 'https://api.moonshot.cn/v1' },
+    { id: 8,  name: '火山方舟',        company: '字节跳动',    url: 'https://ark.cn-beijing.volces.com/api/v3' },
+    { id: 9,  name: '百度千帆',        company: '百度',        url: 'https://qianfan.baidubce.com/v2' },
+    { id: 10, name: '腾讯混元',        company: '腾讯',        url: 'https://api.hunyuan.cloud.tencent.com/v1' }
+  ];
+
+  var keyword = '';
+  var selected = {};
+
+  var tbody    = document.getElementById('tbody');
+  var checkAll = document.getElementById('checkAll');
+  var btnDel   = document.getElementById('btnDelete');
+  var countEl  = document.getElementById('count');
+  var kw       = document.getElementById('kw');
+  var overlay  = document.getElementById('overlay');
+  var dlgText  = document.getElementById('dlgText');
+  var toastEl  = document.getElementById('toast');
+
+  var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+  function esc(value) {
+    return String(value).replace(/[&<>"]/g, function (c) { return ESC_MAP[c]; });
+  }
+
+  /* ---------- 渲染 ---------- */
+  function visibleRows() {
+    var key = keyword.trim().toLowerCase();
+    if (!key) return servers.slice();
+    return servers.filter(function (s) { return s.name.toLowerCase().indexOf(key) > -1; });
+  }
+
+  function render() {
+    var rows = visibleRows();
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="4">没有符合条件的服务器</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(function (s) {
+        return '<tr data-id="' + s.id + '"' + (selected[s.id] ? ' class="selected"' : '') + '>' +
+          '<td class="col-check">' +
+            '<input type="checkbox" data-check aria-label="选择 ' + esc(s.name) + '"' + (selected[s.id] ? ' checked' : '') + '>' +
+          '</td>' +
+          '<td><a href="#" data-detail="' + esc(s.name) + '">' + esc(s.name) + '</a></td>' +
+          '<td>' + esc(s.company) + '</td>' +
+          '<td class="col-url">' + esc(s.url) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    countEl.textContent = '共 ' + rows.length + ' 条' +
+      (keyword.trim() ? '，已按“' + keyword.trim() + '”筛选' : '');
+    syncSelection();
+  }
+
+  /* ---------- 勾选状态 ---------- */
+  function syncSelection() {
+    var boxes = tbody.querySelectorAll('input[data-check]');
+    var checked = 0;
+    Array.prototype.forEach.call(boxes, function (b) { if (b.checked) checked++; });
+
+    checkAll.checked = boxes.length > 0 && checked === boxes.length;
+    checkAll.indeterminate = checked > 0 && checked < boxes.length;
+    btnDel.disabled = checked === 0;
+  }
+
+  function selectedRows() {
+    return servers.filter(function (s) { return selected[s.id]; });
+  }
+
+  /* ---------- 轻提示 ---------- */
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+
+  /* ---------- 搜索 / 重置 ---------- */
+  document.getElementById('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    keyword = kw.value;
+    render();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function () {
+    kw.value = '';
+    keyword = '';
+    render();
+    kw.focus();
+  });
+
+  /* ---------- 全选 ---------- */
+  checkAll.addEventListener('change', function () {
+    visibleRows().forEach(function (s) {
+      if (checkAll.checked) selected[s.id] = true; else delete selected[s.id];
+    });
+    render();
+  });
+
+  /* ---------- 行交互 ---------- */
+  tbody.addEventListener('click', function (e) {
+    var link = e.target.closest('a[data-detail]');
+    if (link) {
+      e.preventDefault();
+      toast('打开「' + link.getAttribute('data-detail') + '」详情（原型示意）');
+      return;
+    }
+
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+
+    var id = tr.getAttribute('data-id');
+    var box = tr.querySelector('input[data-check]');
+    if (e.target !== box) box.checked = !box.checked;
+
+    if (box.checked) selected[id] = true; else delete selected[id];
+    tr.classList.toggle('selected', box.checked);
+    syncSelection();
+  });
+
+
+  /* ---------- 删除 ---------- */
+  btnDel.addEventListener('click', function () {
+    if (btnDel.disabled) return;
+    var rows = selectedRows();
+    var names = rows.map(function (s) { return s.name; });
+    dlgText.textContent = '确定要删除选中的 ' + names.length + ' 个服务器吗？（' +
+      names.slice(0, 3).join('、') + (names.length > 3 ? ' 等' : '') + '）删除后不可恢复。';
+    overlay.hidden = false;
+  });
+
+  document.getElementById('dlgCancel').addEventListener('click', function () {
+    overlay.hidden = true;
+  });
+
+  document.getElementById('dlgOk').addEventListener('click', function () {
+    var count = selectedRows().length;
+    servers = servers.filter(function (s) { return !selected[s.id]; });
+    selected = {};
+    overlay.hidden = true;
+    render();
+    toast('已删除 ' + count + ' 个服务器');
+  });
+
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.hidden = true; });
+
+  /* ---------- 左侧菜单 ---------- */
+  document.getElementById('menu').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.item');
+    if (!btn) return;
+
+    var items = document.querySelectorAll('.item');
+
+    if (btn.hasAttribute('data-toggle')) {
+      btn.parentElement.classList.toggle('open');
+      return;
+    }
+
+    Array.prototype.forEach.call(items, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (btn.classList.contains('lv1')) {
+      if (btn.parentElement.classList.contains('leaf')) {
+        toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+      } else {
+        btn.parentElement.classList.add('open');
+      }
+      return;
+    }
+
+    toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

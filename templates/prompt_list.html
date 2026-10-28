@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Prompt · 调试列表</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e8eaee; --line-soft:#f0f2f5;
+    --text:#1f2329; --text-2:#5b6371; --text-3:#9aa1ad;
+    --brand:#2c6bed; --brand-soft:#eef4ff;
+    --danger:#e5484d; --danger-soft:#fdf0f0; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .app{display:flex;min-height:100vh}
+
+  /* ---------- 左侧菜单 ---------- */
+  .sidebar{
+    width:236px; flex:0 0 236px; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; height:60px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-logo{
+    width:28px; height:28px; border-radius:7px; flex:0 0 auto; color:#fff;
+    background:linear-gradient(135deg,#2c6bed,#5b9bff);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.2px}
+
+  .menu{padding:10px 8px; overflow:auto; flex:1}
+  .menu ul{list-style:none; margin:0; padding:0}
+  .item{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 10px; border:0; border-radius:6px; background:transparent;
+    color:var(--text-2); font:inherit; text-align:left; cursor:pointer;
+  }
+  .item:hover{background:#f4f5f8; color:var(--text)}
+  .item .caret{
+    width:14px; flex:0 0 14px; color:var(--text-3); font-size:10px;
+    text-align:center; transition:transform .15s ease;
+  }
+  .group.open > .item .caret{transform:rotate(90deg)}
+  .group.leaf > .item .caret{visibility:hidden}
+  .item .label{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lv1{font-size:14px; font-weight:600; color:var(--text)}
+  .lv2{margin-left:8px; font-size:13.5px}
+  .lv3{margin-left:22px; font-size:13px; color:var(--text-3); padding:6px 10px}
+  .lv3 .dot{width:4px; height:4px; border-radius:50%; background:#cdd2db; flex:0 0 4px}
+  .lv3:hover .dot, .lv3.active .dot{background:var(--brand)}
+  .item.active{background:var(--brand-soft); color:var(--brand)}
+  .menu a.item{text-decoration:none}
+  .sub{display:none}
+  .group.open > .sub{display:block}
+  .sidebar-foot{padding:12px 18px; border-top:1px solid var(--line); color:var(--text-3); font-size:12px}
+
+  /* ---------- 主区 ---------- */
+  .main{flex:1; min-width:0; padding:20px 24px 40px}
+  .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px}
+  .crumb{color:var(--text-3); font-size:13px}
+  .crumb b{color:var(--text); font-weight:600; font-size:15px}
+  .actions{display:flex; gap:8px}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:32px; padding:0 14px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{background:#fafbfc; border-color:#d9dde3}
+  a.btn, a.btn:hover{text-decoration:none}
+  .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn-primary:hover{background:#255ed6; border-color:#255ed6}
+  .btn-danger{color:var(--danger); border-color:#f2c9cb}
+  .btn-danger:hover:not(:disabled){background:var(--danger-soft); border-color:#ecb4b6}
+  .btn-sm{height:28px; padding:0 10px; font-size:13px}
+  .btn:disabled{color:#c3c8d1; border-color:var(--line); background:#fafbfc; cursor:not-allowed}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+
+  .searchbar{
+    display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
+    padding:16px 18px; border-bottom:1px solid var(--line-soft);
+  }
+  .field{display:flex; flex-direction:column; gap:6px}
+  .field label{font-size:13px; color:var(--text-2)}
+  .field input{
+    width:240px; height:32px; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit;
+  }
+  .field input::placeholder{color:var(--text-3)}
+  .field input:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .search-actions{display:flex; gap:8px}
+
+  /* ---------- 表格 ---------- */
+  .table-wrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; min-width:1240px}
+  th,td{padding:12px 18px; text-align:left; font-weight:400; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+  thead th{
+    color:var(--text-2); font-size:13px; font-weight:600;
+    background:#fbfcfd; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody tr:hover{background:#fafbfd}
+  tbody tr.selected{background:var(--brand-soft)}
+  tbody tr:last-child td{border-bottom:0}
+  .col-check{width:44px; padding-right:0}
+  .col-check input{width:15px; height:15px; vertical-align:-2px; accent-color:var(--brand); cursor:pointer}
+  .col-name{width:180px}
+  .col-plat{width:150px}
+  .col-model{width:190px}
+  .col-sys{min-width:240px; color:var(--text-2); font-size:13px}
+  .col-sys .ellip{color:var(--text-2)}
+  .col-time{width:160px; color:var(--text-2); font-size:13px; white-space:nowrap}
+  .col-num{width:88px; font-variant-numeric:tabular-nums}
+  .rate{font-variant-numeric:tabular-nums}
+  .rate.good{color:var(--brand)}
+  .rate.bad{color:var(--danger)}
+  .col-op{width:140px; white-space:nowrap}
+  .col-op .btn + .btn{margin-left:6px}
+  .empty{padding:48px 0; text-align:center; color:var(--text-3)}
+  .table-foot{
+    display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px;
+    padding:12px 18px; background:#fbfcfd; color:var(--text-3); font-size:13px;
+  }
+
+  /* ---------- 弹窗 / 轻提示 ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:50; padding:24px;
+    background:rgba(15,20,30,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .overlay[hidden]{display:none}
+  .dialog{
+    width:100%; max-width:400px; padding:20px 22px; background:var(--panel);
+    border-radius:10px; box-shadow:0 12px 32px rgba(15,20,30,.18);
+  }
+  .dialog h3{margin:0 0 8px; font-size:16px}
+  .dialog p{margin:0; color:var(--text-2)}
+  .dialog-foot{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+  .toast{
+    position:fixed; left:50%; bottom:36px; z-index:60; transform:translateX(-50%);
+    padding:9px 16px; border-radius:6px; background:#1f2329; color:#fff; font-size:13px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+  }
+  .toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= 左侧菜单（与其余原型一致；本页对应项「调试列表」高亮） ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16M4 12h10M4 18h7"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Test Prompt</span>
+    </div>
+
+    <nav class="menu" id="menu">
+      <ul>
+        <!-- 一级菜单：基础信息 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">基础信息</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：服务器 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">服务器</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：服务器列表 / 添加服务器 -->
+                <li>
+                  <a class="item lv3" href="list_server.html" data-page="服务器列表">
+                    <span class="dot"></span><span class="label">服务器列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="server_add.html" data-page="添加服务器">
+                    <span class="dot"></span><span class="label">添加服务器</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <!-- 二级菜单：模型 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">模型</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：模型列表 / 添加模型 -->
+                <li>
+                  <a class="item lv3" href="model_server.html" data-page="模型列表">
+                    <span class="dot"></span><span class="label">模型列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="model_add.html" data-page="添加模型">
+                    <span class="dot"></span><span class="label">添加模型</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：提示词 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">提示词</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：提示词调试 / 调试列表 -->
+            <li class="group leaf">
+              <a class="item lv2" href="prompt_dis_2.0.html" data-page="提示词调试">
+                <span class="caret">&#9654;</span><span class="label">提示词调试</span>
+              </a>
+            </li>
+            <li class="group leaf">
+              <a class="item lv2 active" href="prompt_list.html" data-page="调试列表">
+                <span class="caret">&#9654;</span><span class="label">调试列表</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：SQL -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">SQL</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：表结构 -->
+            <li class="group leaf">
+              <a class="item lv2" href="table_relation.html" data-page="表结构">
+                <span class="caret">&#9654;</span><span class="label">表结构</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">v2.0 · 原型演示</div>
+  </aside>
+
+  <!-- ================= 主内容 ================= -->
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">提示词 / <b>调试列表</b></div>
+      <div class="actions">
+        <button class="btn btn-danger" id="btnDelete" type="button" disabled>删除</button>
+        <a class="btn btn-primary" href="prompt_dis_2.0.html" id="btnAdd">添加</a>
+      </div>
+    </div>
+
+    <section class="card">
+      <!-- 搜索区 -->
+      <form class="searchbar" id="searchForm">
+        <div class="field">
+          <label for="kw">模型名</label>
+          <input id="kw" type="text" placeholder="请输入模型名" autocomplete="off">
+        </div>
+        <div class="search-actions">
+          <button class="btn btn-primary" type="submit">搜索</button>
+          <button class="btn" type="button" id="btnReset">重置</button>
+        </div>
+      </form>
+
+      <!-- 列表 -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="checkAll" aria-label="全选"></th>
+              <th class="col-name">模块名称</th>
+              <th class="col-plat">平台/官方名</th>
+              <th class="col-model">模型名</th>
+              <th class="col-sys">系统提示词</th>
+              <th class="col-time">时间</th>
+              <th class="col-num">用例总数</th>
+              <th class="col-num">准确率</th>
+              <th class="col-op">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-foot">
+        <span id="count">共 0 条</span>
+        <span>数据来源：本机 Prompt_Test_DB.db —— 时间 = 保存时的系统本地时间；用例总数 / 准确率 = evaluate 表实际评估结果（准确率 = 判定正确 ÷ 已判定）</span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h3 id="dlgTitle">删除确认</h3>
+    <p id="dlgText"></p>
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="dlgCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="dlgOk">确定删除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  /* ================= 本地存储（与「提示词调试」页共用同一份数据） =================
+     file:// 下 Chrome / Edge 同样可用；不可用时退化为内存，仅本次会话有效。 */
+  var KEY_RECORDS = 'tp_debug_records';
+  var KEY_SEEDED  = 'tp_debug_seeded';
+
+  var store = (function () {
+    var usable = true;
+    try {
+      localStorage.setItem('__tp_probe__', '1');
+      localStorage.removeItem('__tp_probe__');
+    } catch (e) { usable = false; }
+
+    var mem = {};
+    return {
+      usable: usable,
+      get: function (k) {
+        try { return usable ? localStorage.getItem(k) : (mem[k] || null); }
+        catch (e) { return mem[k] || null; }
+      },
+      set: function (k, v) {
+        try { if (usable) localStorage.setItem(k, v); else mem[k] = v; }
+        catch (e) { mem[k] = v; }
+      }
+    };
+  })();
+
+  /* 数据源：服务端从 prompt 表读出（联表带出 平台/官方名、模型名） */
+  var RECORDS = {{ records_json|safe }};
+  function readRecords() { return RECORDS; }
+  function writeRecords(list) { RECORDS = list; }
+
+  /* ================= 服务器「首页」映射（原型示意） =================
+     真实系统的口径：平台/官方名 → 该服务器在「添加服务器」页填写的「首页」(tp_server.home_url)，
+     新窗口打开；未填写「首页」时回落到该服务器的编辑页。
+     这里是静态原型，记录里只存了平台名，故内置一份官网映射；未收录的平台回落到服务器列表页。 */
+  var HOME = {{ server_home_json|safe }};
+  var HOME_FALLBACK = 'list_server.html';   /* 未填写「首页」→ 回落到该服务器的编辑页（原型用服务器列表代替） */
+
+  function serverHome(server) {
+    var name = String(server || '').trim();
+    return HOME[name] || HOME_FALLBACK;
+  }
+
+  /* ================= DOM ================= */
+  var tbody    = document.getElementById('tbody');
+  var checkAll = document.getElementById('checkAll');
+  var btnDel   = document.getElementById('btnDelete');
+  var countEl  = document.getElementById('count');
+  var kw       = document.getElementById('kw');
+  var overlay  = document.getElementById('overlay');
+  var dlgText  = document.getElementById('dlgText');
+  var toastEl  = document.getElementById('toast');
+
+  var EDIT_URL = 'prompt_dis_2.0.html?open=';   /* 编辑：跳回「提示词调试」并回填当时保存的内容 */
+  var EVAL_URL = 'prompt_dis_2.0.html?open=';   /* 评估：跳回「提示词调试」并回填当时保存的内容 */
+  var EVAL_FOCUS = '&focus=eval';               /* 评估：进入后自动定位到「调试结果」模块区域 */
+  var SYS_CUT  = 20;                            /* 系统提示词列：取前 20 个字 */
+  var keyword = '';
+  var selected = {};
+
+  var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+  function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return ESC_MAP[c]; }); }
+
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+
+  /* 系统提示词：压平空白后截取前 SYS_CUT 个字（超长补省略号） */
+  function sysText(v) {
+    var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    return s.length > SYS_CUT ? s.slice(0, SYS_CUT) + '…' : s;
+  }
+
+  /* 用例总数 / 准确率：与「评估列表」score_pompt_list.html 完全同一口径
+     —— 准确率 = 判定正确 ÷ 已判定（待人工判定的不计入），无已判定记录时显示 -- */
+  function num(v) { return typeof v === 'number' && isFinite(v) ? v : 0; }
+  function rateText(r) {
+    return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1) + '%' : '--';
+  }
+  function rateClass(r) {
+    if (typeof r !== 'number' || !isFinite(r)) return '';
+    return r >= 80 ? ' good' : (r < 60 ? ' bad' : '');
+  }
+
+  /* ================= 搜索：按模型名筛选 ================= */
+  function visibleRows() {
+    var key = keyword.trim().toLowerCase();
+    var list = readRecords();
+    if (!key) return list;
+    return list.filter(function (r) {
+      return String(r.model || '').toLowerCase().indexOf(key) > -1;
+    });
+  }
+
+  /* ================= 渲染 ================= */
+  function render() {
+    var rows = visibleRows();
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="9">' +
+        (keyword.trim()
+          ? '没有匹配「' + esc(keyword.trim()) + '」的调试记录，换个模型名或点「重置」'
+          : '还没有调试记录，请到「提示词 / 提示词调试」配置并点击「保存」') +
+        '</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(function (r) {
+        var url  = EDIT_URL + encodeURIComponent(r.id);
+        var evalUrl = EVAL_URL + encodeURIComponent(r.id) + EVAL_FOCUS;
+        var home = serverHome(r.server);
+        var full = String(r.sysPrompt || '').replace(/\s+/g, ' ').trim();
+        var short = sysText(full);
+        var st   = r.stats || {};
+        var rate = st.judged ? st.rate : undefined;
+        return '<tr data-id="' + esc(r.id) + '"' + (selected[r.id] ? ' class="selected"' : '') + '>' +
+          '<td class="col-check">' +
+            '<input type="checkbox" data-check aria-label="选择 ' + esc(r.name || r.id) + '"' +
+              (selected[r.id] ? ' checked' : '') + '>' +
+          '</td>' +
+          '<td class="col-name">' + esc(r.name || '未命名调试') + '</td>' +
+          '<td class="col-plat">' +
+            '<a href="' + esc(home) + '" target="_blank" rel="noopener" data-home="' + esc(r.server) + '">' +
+              esc(r.server || '--') + '</a>' +
+          '</td>' +
+          '<td class="col-model">' + esc(r.model || '--') + '</td>' +
+          '<td class="col-sys">' +
+            (short
+              ? '<span class="ellip"' + (full !== short ? ' title="' + esc(full) + '"' : '') + '>' +
+                  esc(short) + '</span>'
+              : '<span style="color:var(--text-3)">--</span>') +
+          '</td>' +
+          '<td class="col-time">' + esc(r.savedAt || '--') + '</td>' +
+          '<td class="col-num">' + num(st.total) + '</td>' +
+          '<td class="col-num"><span class="rate' + rateClass(rate) + '">' + rateText(rate) + '</span></td>' +
+          '<td class="col-op">' +
+            '<a class="btn btn-sm" href="' + esc(url) + '" data-edit="' + esc(r.id) + '">编辑</a>' +
+            '<a class="btn btn-sm" href="' + esc(evalUrl) + '" data-eval="' + esc(r.id) + '">评估</a>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    countEl.textContent = '共 ' + rows.length + ' 条' +
+      (keyword.trim() ? '，已按模型名「' + keyword.trim() + '」筛选' : '');
+    syncSelection();
+  }
+
+  /* ================= 勾选 ================= */
+  function syncSelection() {
+    var boxes = tbody.querySelectorAll('input[data-check]');
+    var checked = 0;
+    Array.prototype.forEach.call(boxes, function (b) { if (b.checked) checked++; });
+
+    checkAll.checked = boxes.length > 0 && checked === boxes.length;
+    checkAll.indeterminate = checked > 0 && checked < boxes.length;
+    btnDel.disabled = checked === 0;          /* 有勾选时「删除」才可点 */
+  }
+
+  function selectedRows() {
+    return readRecords().filter(function (r) { return selected[r.id]; });
+  }
+
+  /* ================= 交互 ================= */
+  document.getElementById('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    keyword = kw.value;
+    render();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function () {
+    kw.value = '';
+    keyword = '';
+    render();
+    kw.focus();
+  });
+
+  checkAll.addEventListener('change', function () {
+    visibleRows().forEach(function (r) {
+      if (checkAll.checked) selected[r.id] = true; else delete selected[r.id];
+    });
+    render();
+  });
+
+  tbody.addEventListener('click', function (e) {
+    /* 编辑 / 平台名链接：交给浏览器跳转，不参与勾选 */
+    if (e.target.closest('a[data-edit], a[data-eval], a[data-home]')) return;
+
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    var id = tr.getAttribute('data-id');
+    var box = tr.querySelector('input[data-check]');
+    if (!box) return;
+    if (e.target !== box) box.checked = !box.checked;
+    if (box.checked) {
+      selected[id] = true;
+    } else {
+      delete selected[id];
+    }
+    tr.classList.toggle('selected', box.checked);
+    syncSelection();
+  });
+
+  /* ================= 批量删除 ================= */
+  btnDel.addEventListener('click', function () {
+    if (btnDel.disabled) return;
+    var rows = selectedRows();
+    var names = rows.map(function (r) { return r.server || r.id; });
+    dlgText.textContent = '确定要删除选中的 ' + names.length + ' 条调试记录吗？（' +
+      names.slice(0, 3).join('、') + (names.length > 3 ? ' 等' : '') + '）删除后不可恢复。';
+    overlay.hidden = false;
+    overlay.setAttribute('data-target', '');
+  });
+
+  document.getElementById('dlgCancel').addEventListener('click', function () { overlay.hidden = true; });
+
+  document.getElementById('dlgOk').addEventListener('click', function () {
+    var ids = {};
+    selectedRows().forEach(function (r) { ids[r.id] = true; });
+    var list = Object.keys(ids);
+    if (!list.length) { overlay.hidden = true; return; }
+
+    fetch('/api/prompt/delete/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: list })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      writeRecords(readRecords().filter(function (r) { return !ids[r.id]; }));
+      selected = {};
+      overlay.hidden = true;
+      render();
+      toast('已删除 ' + ((res && res.deleted) || list.length) + ' 条调试记录');
+    }).catch(function () {
+      overlay.hidden = true;
+      toast('删除失败，请确认服务已启动');
+    });
+  });
+
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.hidden = true; });
+
+  /* ================= 左侧菜单 ================= */
+  document.getElementById('menu').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.item');
+    if (!btn) return;
+
+    if (btn.hasAttribute('data-toggle')) {
+      btn.parentElement.classList.toggle('open');
+      return;
+    }
+
+    var items = document.querySelectorAll('.item');
+    Array.prototype.forEach.call(items, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (btn.classList.contains('lv1')) {
+      if (btn.parentElement.classList.contains('leaf')) {
+        toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+      } else {
+        btn.parentElement.classList.add('open');
+      }
+      return;
+    }
+
+    toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+  });
+
+  /* 供自动化验收 / 手动调试使用 */
+  window.__TP__ = {
+    store: store,
+    readRecords: readRecords,
+    writeRecords: writeRecords,
+    visibleRows: visibleRows,
+    sysText: sysText,
+    serverHome: serverHome,
+    render: render
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>

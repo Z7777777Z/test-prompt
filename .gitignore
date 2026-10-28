@@ -1,0 +1,39 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- Django / 本项目运行时产物 ----
+*.sqlite3
+*.db
+*.db-journal
+Prompt_Test_DB.db
+staticfiles/
+/prompt_test_db/
+
+# ---- 本地环境变量与密钥 ----
+.env
+.env.*
+!.env.example
+config/judge_config.local.json
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- 调试与截图（本地验收产物，不入库） ----
+_verify_*.py
+_edge_*.js
+_shot_*.js
+screenshots/
+*.png.tmp

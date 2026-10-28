@@ -1,0 +1,19 @@
+# 统一换行符：脚本/配置一律 LF，避免 Windows 检出后 sh 脚本报 "$'\r': command not found"
+* text=auto eol=lf
+
+*.sh          text eol=lf
+Dockerfile    text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.py          text eol=lf
+*.html        text eol=lf
+*.md          text eol=lf
+*.json        text eol=lf
+*.txt         text eol=lf
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+
+*.png         binary
+*.jpg         binary
+*.xlsx        binary
+*.db          binary

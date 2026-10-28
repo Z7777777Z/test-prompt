@@ -1,0 +1,7 @@
+{
+  "_comment": "模型判定（裁判）模型配置：对「标准答案」与「模型答案」判定是否一致（文本含义一致 / 代码功能一致即算正确）。api_key 留空，请在创空间环境变量里配置 TP_JUDGE_API_KEY（也支持 TP_JUDGE_BASE_URL / TP_JUDGE_MODEL / TP_JUDGE_TIMEOUT 覆盖，或用 TP_JUDGE_CONFIG 指向别的配置文件）。注意 model 必须是硅基流动的完整模型 id（如 deepseek-ai/DeepSeek-V4-Pro），写口语名会报 20012 Model does not exist。",
+  "base_url": "https://api.siliconflow.cn/v1",
+  "model": "deepseek-ai/DeepSeek-V4-Pro",
+  "api_key": "",
+  "timeout": 120
+}

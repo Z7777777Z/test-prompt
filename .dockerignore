@@ -1,0 +1,10 @@
+# ---- 上传包内无需进镜像的东西（构建上下文瘦身） ----
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+*.db
+*.db-journal
+.idea/
+.vscode/
+.DS_Store

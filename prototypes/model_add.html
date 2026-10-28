@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Prompt · 添加模型</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e8eaee; --line-soft:#f0f2f5;
+    --text:#1f2329; --text-2:#5b6371; --text-3:#9aa1ad;
+    --brand:#2c6bed; --brand-soft:#eef4ff;
+    --danger:#e5484d; --danger-soft:#fdf0f0; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .app{display:flex;min-height:100vh}
+
+  /* ---------- 左侧菜单 ---------- */
+  .sidebar{
+    width:236px; flex:0 0 236px; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; height:60px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-logo{
+    width:28px; height:28px; border-radius:7px; flex:0 0 auto; color:#fff;
+    background:linear-gradient(135deg,#2c6bed,#5b9bff);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.2px}
+
+  .menu{padding:10px 8px; overflow:auto; flex:1}
+  .menu ul{list-style:none; margin:0; padding:0}
+  .item{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 10px; border:0; border-radius:6px; background:transparent;
+    color:var(--text-2); font:inherit; text-align:left; cursor:pointer;
+  }
+  .item:hover{background:#f4f5f8; color:var(--text)}
+  .menu a.item{text-decoration:none}
+  .item .caret{
+    width:14px; flex:0 0 14px; color:var(--text-3); font-size:10px;
+    text-align:center; transition:transform .15s ease;
+  }
+  .group.open > .item .caret{transform:rotate(90deg)}
+  .group.leaf > .item .caret{visibility:hidden}
+  .item .label{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lv1{font-size:14px; font-weight:600; color:var(--text)}
+  .lv2{margin-left:8px; font-size:13.5px}
+  .lv3{margin-left:22px; font-size:13px; color:var(--text-3); padding:6px 10px}
+  .lv3 .dot{width:4px; height:4px; border-radius:50%; background:#cdd2db; flex:0 0 4px}
+  .lv3:hover .dot, .lv3.active .dot{background:var(--brand)}
+  .item.active{background:var(--brand-soft); color:var(--brand)}
+  .sub{display:none}
+  .group.open > .sub{display:block}
+  .sidebar-foot{padding:12px 18px; border-top:1px solid var(--line); color:var(--text-3); font-size:12px}
+
+  /* ---------- 主区 ---------- */
+  .main{flex:1; min-width:0; padding:20px 24px 40px}
+  .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px}
+  .crumb{color:var(--text-3); font-size:13px}
+  .crumb b{color:var(--text); font-weight:600; font-size:15px}
+  .actions{display:flex; gap:8px}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:32px; padding:0 14px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{background:#fafbfc; border-color:#d9dde3}
+  a.btn, a.btn:hover{text-decoration:none}
+  .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn-primary:hover{background:#255ed6; border-color:#255ed6}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+  .card-head{padding:16px 18px; border-bottom:1px solid var(--line-soft)}
+  .card-head h2{margin:0; font-size:15px; font-weight:600}
+
+  .form{padding:20px 18px 4px; max-width:620px}
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:18px}
+  .field label{font-size:13px; color:var(--text-2)}
+  .field label .req{color:var(--danger)}
+  .field input{
+    width:100%; height:34px; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit;
+  }
+  .field input::placeholder{color:var(--text-3)}
+  .field input:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .field.invalid input{border-color:#ecb4b6; background:#fffafa}
+  .hint{color:var(--text-3); font-size:12px}
+  .error{display:none; color:var(--danger); font-size:12px}
+  .field.invalid .error{display:block}
+
+  /* ---------- 价格：输入 + 单位 ---------- */
+  .money{display:flex; gap:8px}
+  .money input{flex:1; min-width:0}
+  .money select{
+    width:112px; flex:0 0 112px; height:34px; padding:0 8px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer;
+  }
+  .money select:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+
+  /* ---------- 普通下拉列表框 ---------- */
+  .field select{
+    width:100%; height:34px; padding:0 8px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer;
+  }
+  .field select:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .field select:invalid{color:var(--text-3)}
+
+  /* ---------- 多选下拉列表框 ---------- */
+  .multi{position:relative}
+  .multi-box{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    min-height:34px; padding:4px 32px 4px 8px;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    cursor:pointer;
+  }
+  .multi.open .multi-box{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+  .multi-box .placeholder{color:var(--text-3); padding:2px 2px}
+  .multi-arrow{
+    position:absolute; right:1px; top:1px; width:30px; height:32px;
+    border:0; background:transparent; color:var(--text-3);
+    font-size:10px; line-height:1; cursor:pointer; border-radius:6px;
+  }
+  .multi-arrow:hover{color:var(--text-2)}
+  .multi-tag{
+    display:inline-flex; align-items:center; gap:4px;
+    padding:2px 6px 2px 8px; border-radius:5px;
+    background:var(--brand-soft); color:var(--brand); font-size:12.5px;
+  }
+  .multi-tag .x{
+    border:0; background:transparent; color:inherit; font-size:13px;
+    line-height:1; padding:0 1px; cursor:pointer; opacity:.75;
+  }
+  .multi-tag .x:hover{opacity:1}
+  .multi-list{
+    position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20;
+    padding:4px; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; box-shadow:0 8px 24px rgba(15,20,30,.10);
+    max-height:216px; overflow:auto;
+  }
+  .multi-list[hidden]{display:none}
+  .multi-option{
+    display:flex; align-items:center; gap:8px;
+    padding:7px 10px; border-radius:6px; font-size:13.5px; color:var(--text); cursor:pointer;
+  }
+  .multi-option:hover{background:#f4f5f8}
+  .multi-option.checked{background:var(--brand-soft); color:var(--brand)}
+  .multi-option .tick{width:14px; flex:0 0 14px; text-align:center; font-size:12px; visibility:hidden}
+  .multi-option.checked .tick{visibility:visible}
+  .multi-list .multi-empty{padding:8px 10px; color:var(--text-3); font-size:12.5px}
+
+  .form-foot{display:flex; gap:8px; padding:16px 18px; border-top:1px solid var(--line-soft); background:#fbfcfd}
+
+  .toast{
+    position:fixed; left:50%; bottom:36px; z-index:60; transform:translateX(-50%);
+    padding:9px 16px; border-radius:6px; background:#1f2329; color:#fff; font-size:13px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+  }
+  .toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= 左侧菜单 ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16M4 12h10M4 18h7"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Test Prompt</span>
+    </div>
+
+    <nav class="menu" id="menu">
+      <ul>
+        <!-- 一级菜单：基础信息 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">基础信息</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：服务器 -->
+            <li class="group open">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">服务器</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：服务器列表 / 添加服务器 -->
+                <li>
+                  <a class="item lv3" href="list_server.html" data-page="服务器列表">
+                    <span class="dot"></span><span class="label">服务器列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="server_add.html" data-page="添加服务器">
+                    <span class="dot"></span><span class="label">添加服务器</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <!-- 二级菜单：模型 -->
+            <li class="group open">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">模型</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：模型列表 / 添加模型 -->
+                <li>
+                  <a class="item lv3" href="model_server.html" data-page="模型列表">
+                    <span class="dot"></span><span class="label">模型列表</span>
+                  </a>
+                </li>
+                <li>
+                  <button class="item lv3 active" type="button" data-page="添加模型">
+                    <span class="dot"></span><span class="label">添加模型</span>
+                  </button>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：提示词调试 -->
+        <li class="group leaf">
+          <a class="item lv1" href="prompt_dis.html" data-page="提示词调试">
+            <span class="caret">&#9654;</span><span class="label">提示词调试</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">v0.1 · 原型演示</div>
+  </aside>
+
+  <!-- ================= 主内容 ================= -->
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">基础信息 / 模型 / <b>添加模型</b></div>
+      <div class="actions">
+        <a class="btn" href="model_server.html">返回列表</a>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>添加模型</h2>
+      </div>
+
+      <form id="modelForm" novalidate>
+        <div class="form">
+          <!-- 服务器下拉列表框 -->
+                  <div class="field" id="f-server">
+            <label for="server">服务器 <span class="req">*</span></label>
+            <select id="server" name="server" required>
+              <option value="" selected disabled>请选择服务器</option>
+            </select>
+            <span class="error">请选择所属服务器。</span>
+          </div>
+
+          <!-- 模型名 -->
+          <div class="field" id="f-modelName">
+            <label for="modelName">模型名 <span class="req">*</span></label>
+            <input id="modelName" name="modelName" type="text" placeholder="如：deepseek-chat" autocomplete="off">
+            <span class="error">请输入模型名。</span>
+          </div>
+
+          <!-- 输入 token 计费 -->
+          <div class="field" id="f-priceIn">
+            <label for="priceIn">输入token计费 <span class="req">*</span></label>
+            <div class="money">
+              <input id="priceIn" name="priceIn" type="text" inputmode="decimal"
+                     placeholder="如：0.001" autocomplete="off">
+              <select id="unitIn" name="unitIn" aria-label="输入token计费单位">
+                <option value="K" selected>K</option>
+                <option value="万">万</option>
+                <option value="十万">十万</option>
+                <option value="百万">百万</option>
+              </select>
+            </div>
+            <span class="error">只能填写数字，可含小数点。</span>
+          </div>
+
+          <!-- 输出 token 计费 -->
+          <div class="field" id="f-priceOut">
+            <label for="priceOut">输出token计费</label>
+            <div class="money">
+              <input id="priceOut" name="priceOut" type="text" inputmode="decimal"
+                     placeholder="选填，如：0.002" autocomplete="off">
+              <select id="unitOut" name="unitOut" aria-label="输出token计费单位">
+                <option value="K" selected>K</option>
+                <option value="万">万</option>
+                <option value="十万">十万</option>
+                <option value="百万">百万</option>
+              </select>
+            </div>
+            <span class="error">只能填写数字，可含小数点。</span>
+          </div>
+
+          <!-- 类型（多选） -->
+          <div class="field" id="f-types">
+            <label>类型 <span class="req">*</span></label>
+            <div class="multi" id="multi-types">
+              <div class="multi-box" id="typesBox" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+                <span class="placeholder">请选择类型，可多选</span>
+              </div>
+              <button class="multi-arrow" type="button" id="typesArrow" aria-label="展开类型列表">&#9660;</button>
+              <div class="multi-list" id="typesList" role="listbox" hidden></div>
+            </div>
+            <span class="error">请至少选择一种类型。</span>
+          </div>
+
+          <!-- 网址 -->
+          <div class="field" id="f-url">
+            <label for="url">网址</label>
+            <input id="url" name="url" type="text" placeholder="https://api.example.com/v1/chat/completions" autocomplete="off">
+            <span class="error">请输入以 http:// 或 https:// 开头的网址。</span>
+          </div>
+        </div>
+
+        <div class="form-foot">
+          <button class="btn btn-primary" type="submit">保存</button>
+          <a class="btn" href="model_server.html" id="btnCancel">取消</a>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  /* ---------- 模拟数据 ---------- */
+  var SERVERS = [
+    { id: 1,  name: 'OpenAI' },
+    { id: 2,  name: 'Anthropic' },
+    { id: 3,  name: 'Google Gemini' },
+    { id: 4,  name: 'DeepSeek' },
+    { id: 5,  name: '阿里云百炼' },
+    { id: 6,  name: '智谱AI' },
+    { id: 7,  name: 'Moonshot' },
+    { id: 8,  name: '火山方舟' },
+    { id: 9,  name: '百度千帆' },
+    { id: 10, name: '腾讯混元' }
+  ];
+  var TYPES = ['对话', '视频', '嵌入', '生图', '语音', '重排'];
+
+  var form       = document.getElementById('modelForm');
+  var serverSel  = document.getElementById('server');
+  var modelName  = document.getElementById('modelName');
+  var priceIn    = document.getElementById('priceIn');
+  var priceOut   = document.getElementById('priceOut');
+  var urlIn      = document.getElementById('url');
+  var multi      = document.getElementById('multi-types');
+  var box        = document.getElementById('typesBox');
+  var arrow      = document.getElementById('typesArrow');
+  var list       = document.getElementById('typesList');
+  var toastEl    = document.getElementById('toast');
+  var fServer    = document.getElementById('f-server');
+  var fName      = document.getElementById('f-modelName');
+  var fPriceIn   = document.getElementById('f-priceIn');
+  var fPriceOut  = document.getElementById('f-priceOut');
+  var fTypes     = document.getElementById('f-types');
+  var selected   = {};
+
+  /* ---------- 轻提示 ---------- */
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+
+  /* ---------- 服务器下拉 ---------- */
+  SERVERS.forEach(function (s) {
+    var opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    serverSel.appendChild(opt);
+  });
+
+  /* ---------- 数值输入：只允许数字与小数点 ---------- */
+  function bindNumberInput(input) {
+    input.addEventListener('input', function () {
+      var v = input.value.replace(/[^\d.]/g, '');      /* 只留数字与小数点 */
+      var parts = v.split('.');
+      if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join(''); /* 只保留一个小数点 */
+      if (v.charAt(0) === '.') v = '0' + v;
+      input.value = v;
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length === 1 && !/[\d.]/.test(e.key)) e.preventDefault();
+    });
+  }
+  bindNumberInput(priceIn);
+  bindNumberInput(priceOut);
+
+  /* ---------- 多选下拉：类型 ---------- */
+  function renderList() {
+    list.innerHTML = '';
+    TYPES.forEach(function (name) {
+      var opt = document.createElement('div');
+      opt.className = 'multi-option' + (selected[name] ? ' checked' : '');
+      opt.setAttribute('role', 'option');
+      opt.setAttribute('data-value', name);
+      opt.setAttribute('aria-selected', selected[name] ? 'true' : 'false');
+      opt.innerHTML = '<span class="tick">&#10003;</span><span>' + name + '</span>';
+      list.appendChild(opt);
+    });
+  }
+
+  function renderBox() {
+    var names = TYPES.filter(function (n) { return selected[n]; });
+    box.innerHTML = '';
+    if (!names.length) {
+      var ph = document.createElement('span');
+      ph.className = 'placeholder';
+      ph.textContent = '请选择类型，可多选';
+      box.appendChild(ph);
+      return;
+    }
+    names.forEach(function (name) {
+      var tag = document.createElement('span');
+      tag.className = 'multi-tag';
+      tag.innerHTML = '<span></span><button class="x" type="button" aria-label="移除">&#215;</button>';
+      tag.firstChild.textContent = name;
+      tag.querySelector('.x').addEventListener('click', function (e) {
+        e.stopPropagation();
+        delete selected[name];
+        renderBox();
+        renderList();
+      });
+      box.appendChild(tag);
+    });
+  }
+
+  function openList() {
+    renderList();
+    list.hidden = false;
+    multi.classList.add('open');
+    box.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeList() {
+    list.hidden = true;
+    multi.classList.remove('open');
+    box.setAttribute('aria-expanded', 'false');
+  }
+
+  box.addEventListener('click', function () { if (list.hidden) openList(); else closeList(); });
+  arrow.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (list.hidden) openList(); else closeList();
+  });
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (list.hidden) openList(); else closeList();
+    } else if (e.key === 'Escape') {
+      closeList();
+    }
+  });
+
+  list.addEventListener('click', function (e) {
+    var opt = e.target.closest('.multi-option');
+    if (!opt) return;
+    var value = opt.getAttribute('data-value');
+    if (selected[value]) delete selected[value]; else selected[value] = true;
+    fTypes.classList.remove('invalid');
+    renderBox();
+    renderList();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!multi.contains(e.target)) closeList();
+  });
+
+  /* ---------- 校验 ---------- */
+  var NUM_RE = /^\d+(\.\d+)?$/;
+  function isUrl(value) { return /^https?:\/\/.+/i.test(value); }
+
+  function typeCount() {
+    return TYPES.filter(function (n) { return selected[n]; }).length;
+  }
+
+  function validate() {
+    var okServer = serverSel.value !== '';
+    var okName   = modelName.value.trim() !== '';
+    var okIn     = NUM_RE.test(priceIn.value.trim());
+    var okOut    = priceOut.value.trim() === '' || NUM_RE.test(priceOut.value.trim());
+    var okTypes  = typeCount() > 0;
+
+    fServer.classList.toggle('invalid', !okServer);
+    fName.classList.toggle('invalid', !okName);
+    fPriceIn.classList.toggle('invalid', !okIn);
+    fPriceOut.classList.toggle('invalid', !okOut);
+    fTypes.classList.toggle('invalid', !okTypes);
+
+    return okServer && okName && okIn && okOut && okTypes;
+  }
+
+  serverSel.addEventListener('change', function () { fServer.classList.remove('invalid'); });
+  modelName.addEventListener('input', function () { fName.classList.remove('invalid'); });
+  priceIn.addEventListener('input', function () { fPriceIn.classList.remove('invalid'); });
+  priceOut.addEventListener('input', function () { fPriceOut.classList.remove('invalid'); });
+
+  /* ---------- 保存 / 取消 ---------- */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    closeList();
+
+    if (!validate()) {
+      toast('请先补全必填项');
+      if (serverSel.value === '') { serverSel.focus(); }
+      else if (modelName.value.trim() === '') { modelName.focus(); }
+      else if (!NUM_RE.test(priceIn.value.trim())) { priceIn.focus(); }
+      else if (!NUM_RE.test(priceOut.value.trim())) { priceOut.focus(); }
+      else { box.focus(); }
+      return;
+    }
+
+    if (urlIn.value.trim() !== '' && !isUrl(urlIn.value.trim())) {
+      toast('网址需以 http:// 或 https:// 开头');
+      urlIn.focus();
+      return;
+    }
+
+    toast('保存成功');
+  });
+
+  /* ---------- 左侧菜单 ---------- */
+  document.getElementById('menu').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.item');
+    if (!btn) return;
+
+    if (btn.hasAttribute('data-toggle')) {
+      btn.parentElement.classList.toggle('open');
+      return;
+    }
+
+    var items = document.querySelectorAll('.item');
+    Array.prototype.forEach.call(items, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (btn.classList.contains('lv1')) {
+      if (btn.parentElement.classList.contains('leaf')) {
+        toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+      } else {
+        btn.parentElement.classList.add('open');
+      }
+      return;
+    }
+
+    toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+  });
+
+  renderBox();
+  renderList();
+})();
+</script>
+</body>
+</html>

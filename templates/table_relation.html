@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Prompt · 表结构</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e8eaee; --line-soft:#f0f2f5;
+    --text:#1f2329; --text-2:#5b6371; --text-3:#9aa1ad;
+    --brand:#2c6bed; --brand-soft:#eef4ff;
+    --danger:#e5484d; --danger-soft:#fdf0f0; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .app{display:flex;min-height:100vh}
+
+  /* ---------- 左侧菜单 ---------- */
+  .sidebar{
+    width:236px; flex:0 0 236px; background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; height:60px; padding:0 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-logo{
+    width:28px; height:28px; border-radius:7px; flex:0 0 auto; color:#fff;
+    background:linear-gradient(135deg,#2c6bed,#5b9bff);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{font-size:15px; font-weight:600; letter-spacing:.2px}
+
+  .menu{padding:10px 8px; overflow:auto; flex:1}
+  .menu ul{list-style:none; margin:0; padding:0}
+  .item{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 10px; border:0; border-radius:6px; background:transparent;
+    color:var(--text-2); font:inherit; text-align:left; cursor:pointer;
+  }
+  .item:hover{background:#f4f5f8; color:var(--text)}
+  .item .caret{
+    width:14px; flex:0 0 14px; color:var(--text-3); font-size:10px;
+    text-align:center; transition:transform .15s ease;
+  }
+  .group.open > .item .caret{transform:rotate(90deg)}
+  .group.leaf > .item .caret{visibility:hidden}
+  .item .label{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lv1{font-size:14px; font-weight:600; color:var(--text)}
+  .lv2{margin-left:8px; font-size:13.5px}
+  .lv3{margin-left:22px; font-size:13px; color:var(--text-3); padding:6px 10px}
+  .lv3 .dot{width:4px; height:4px; border-radius:50%; background:#cdd2db; flex:0 0 4px}
+  .lv3:hover .dot, .lv3.active .dot{background:var(--brand)}
+  .item.active{background:var(--brand-soft); color:var(--brand)}
+  .menu a.item{text-decoration:none}
+  .sub{display:none}
+  .group.open > .sub{display:block}
+  .sidebar-foot{padding:12px 18px; border-top:1px solid var(--line); color:var(--text-3); font-size:12px}
+
+  /* ---------- 主区 ---------- */
+  .main{flex:1; min-width:0; padding:20px 24px 40px}
+  .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px}
+  .crumb{color:var(--text-3); font-size:13px}
+  .crumb b{color:var(--text); font-weight:600; font-size:15px}
+  .actions{display:flex; align-items:center; gap:8px; flex:0 0 auto}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:32px; padding:0 14px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{background:#fafbfc; border-color:#d9dde3}
+  a.btn, a.btn:hover{text-decoration:none}
+  .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn-primary:hover{background:#255ed6; border-color:#255ed6}
+  .btn-sm{height:28px; padding:0 10px; font-size:13px}
+  /* 未勾选 / 无内容时按钮呈灰色 */
+  .btn[disabled], .btn[disabled]:hover{background:#f3f4f6; border-color:var(--line); color:var(--text-3); cursor:not-allowed}
+  .btn-primary[disabled], .btn-primary[disabled]:hover{background:#f3f4f6; border-color:var(--line); color:var(--text-3)}
+  .btn-ic{margin-right:6px}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:14px 18px; border-bottom:1px solid var(--line-soft);
+  }
+  .card-head h2{margin:0; font-size:15px; font-weight:600}
+  .head-right{display:flex; align-items:center; gap:8px}
+  .mt16{margin-top:16px}
+  .hint{color:var(--text-3); font-size:12px}
+
+  /* ---------- 顶部工具栏 ---------- */
+  .sel{
+    height:32px; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit; cursor:pointer;
+  }
+  .sel:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12)}
+
+  /* ---------- 左右两栏 ---------- */
+  .split{display:grid; grid-template-columns:minmax(300px,360px) 1fr; gap:16px; align-items:stretch}
+  .split > .card{display:flex; flex-direction:column; min-width:0; height:calc(100vh - 122px); min-height:400px}
+  @media (max-width:1100px){
+    .split{grid-template-columns:1fr}
+    .split > .card{height:auto}
+    .list-body, .schema-body{max-height:420px}
+  }
+
+  /* ---------- 左侧：数据库与表 ---------- */
+  .list-head{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 18px; background:#fbfcfd; border-bottom:1px solid var(--line-soft);
+  }
+  .check{display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-2)}
+  .check input{width:15px; height:15px; accent-color:var(--brand); cursor:pointer; margin:0}
+  .list-body{flex:1 1 auto; overflow:auto; padding:6px 0}
+  .row{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 18px; cursor:pointer; color:var(--text-2);
+  }
+  .row:hover{background:#fafbfd}
+  .row input[type=checkbox]{width:15px; height:15px; accent-color:var(--brand); cursor:pointer; margin:0; flex:0 0 auto}
+  .row .name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .row .meta{flex:0 0 auto; color:var(--text-3); font-size:12.5px}
+  .row .ico{flex:0 0 auto; display:inline-block}
+  /* 三层：服务器 → 数据库 → 表 */
+  .row.srv{background:#f7f9fc; color:var(--text); font-weight:600}
+  .row.srv .ico{width:12px; height:12px; border-radius:3px; background:#b9cffa; border:1px solid #d5e3fc}
+  .row.srv .name{font-size:13.5px}
+  .row.db{padding-left:46px; background:#fbfcfd; color:var(--text); font-weight:600}
+  .row.db .ico{width:10px; height:10px; border-radius:3px; background:var(--brand-soft); border:1px solid #dbe7ff}
+  .row.db .name{font-size:13.5px}
+  .row.tbl{padding-left:74px}
+  .row.tbl .ico{width:4px; height:4px; border-radius:50%; background:#cdd2db}
+  .row.tbl .name{font-size:13.5px; font-weight:400}
+  .row.tbl:hover .ico{background:var(--brand)}
+
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 18px; background:#fbfcfd; border-top:1px solid var(--line-soft);
+  }
+
+  /* ---------- 右侧：表结构 ---------- */
+  .schema-body{flex:1 1 auto; overflow:auto}
+  .schema-tbl{border-bottom:1px solid var(--line-soft)}
+  .schema-tbl:last-child{border-bottom:0}
+  .schema-head{
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+    padding:11px 18px; background:#fbfcfd; border-bottom:1px solid var(--line-soft);
+  }
+  .schema-head b{font-size:13.5px}
+  .schema-tbl table{min-width:0}
+  .schema-tbl th, .schema-tbl td{padding:8px 12px; font-size:13px; white-space:nowrap}
+  .schema-tbl th:first-child, .schema-tbl td:first-child{padding-left:18px}
+  .schema-tbl th:last-child, .schema-tbl td:last-child{padding-right:18px}
+  .schema-tbl td.cmt{white-space:normal; color:var(--text-2); min-width:150px}
+
+  /* ---------- 键徽标 ---------- */
+  .key{display:inline-block; padding:0 6px; border-radius:4px; font-size:11.5px; line-height:18px; background:var(--line-soft); color:var(--text-2)}
+  .key.pk{background:var(--brand-soft); color:var(--brand)}
+  .key.uk{background:#f4f0ff; color:#7c4ddb}
+  .key.fk{background:#fdf3e6; color:#d97706}
+
+  /* ---------- 表格通用 ---------- */
+  .table-wrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; min-width:820px}
+  th,td{padding:12px 18px; text-align:left; font-weight:400; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+  thead th{
+    color:var(--text-2); font-size:13px; font-weight:600;
+    background:#fbfcfd; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody tr:hover{background:#fafbfd}
+  tbody tr:last-child td{border-bottom:0}
+  td code{
+    padding:1px 6px; border-radius:4px; background:var(--line-soft);
+    color:var(--text-2); font-size:12.5px;
+  }
+  .c-soft{color:var(--text-2); font-size:13px}
+  .empty{padding:48px 0; text-align:center; color:var(--text-3)}
+  .empty b{display:block; color:var(--text-2); font-weight:600; margin-bottom:6px}
+
+  /* ---------- 表单 / 弹窗 ---------- */
+  .form{padding:18px 18px 4px}
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:16px}
+  /* .field 是 display:flex，会盖掉 UA 的 [hidden]{display:none}，隐藏字段必须自己写一条 */
+  .field[hidden]{display:none}
+  .field > label{font-size:13px; color:var(--text-2)}
+  .field label .req{color:var(--danger)}
+  .field input, .field select{
+    width:100%; height:34px; padding:0 10px; outline:none;
+    border:1px solid var(--line); border-radius:6px; background:var(--panel);
+    color:var(--text); font:inherit;
+  }
+  .field input::placeholder{color:var(--text-3)}
+  .field input:focus{
+    border-color:var(--brand); box-shadow:0 0 0 3px rgba(44,107,237,.12);
+  }
+  .field.invalid input{border-color:#ecb4b6; background:#fffafa}
+  .error{display:none; color:var(--danger); font-size:12px}
+  .field.invalid .error{display:block}
+
+  /* 不可填 / 只读字段（灰）：如 SQLite 主机模式下的 JDBC URL、URL 模式下的路径 */
+  .field input:disabled, .field input[readonly]{
+    background:#f4f5f7; border-color:var(--line-soft); color:var(--text-3);
+    cursor:not-allowed;
+  }
+  .field input:disabled::placeholder, .field input[readonly]::placeholder{color:var(--text-3)}
+  .field.invalid input:disabled, .field.invalid input[readonly]{border-color:var(--line-soft); background:#f4f5f7}
+
+  /* 「路径」行：输入框 + 浏览… / 创建… */
+  .path-row{display:flex; gap:8px}
+  .path-row input{flex:1 1 auto; min-width:0}
+  .path-row .btn{flex:0 0 auto}
+
+  /* 连接方式：按钮切换 */
+  .seg{display:inline-flex; gap:2px; padding:2px; border:1px solid var(--line); border-radius:6px; background:#f7f8fa; align-self:flex-start}
+  .seg-btn{
+    height:28px; padding:0 14px; border:0; border-radius:4px; background:transparent;
+    color:var(--text-2); font:inherit; font-size:13px; cursor:pointer;
+  }
+  .seg-btn:hover{color:var(--text)}
+  .seg-btn.active{background:var(--panel); color:var(--brand); font-weight:600; box-shadow:0 1px 2px rgba(15,20,30,.08)}
+
+  .overlay{
+    position:fixed; inset:0; z-index:50; padding:24px;
+    background:rgba(15,20,30,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .overlay[hidden]{display:none}
+  .dialog{
+    width:100%; max-width:400px; padding:20px 22px; background:var(--panel);
+    border-radius:10px; box-shadow:0 12px 32px rgba(15,20,30,.18);
+  }
+  .dialog-lg{max-width:480px; max-height:calc(100vh - 48px); overflow:auto}
+  .dialog h3{margin:0 0 8px; font-size:16px}
+  .dialog p{margin:0; color:var(--text-2)}
+  .dialog-foot{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+  .form.in-dialog{padding:0; margin-top:14px}
+
+  .toast{
+    position:fixed; left:50%; bottom:36px; z-index:60; transform:translateX(-50%);
+    padding:9px 16px; border-radius:6px; background:#1f2329; color:#fff; font-size:13px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+  }
+  .toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= 左侧菜单（与其余 8 个原型完全一致；本页不在菜单内，故无高亮项） ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16M4 12h10M4 18h7"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Test Prompt</span>
+    </div>
+
+    <nav class="menu" id="menu">
+      <ul>
+        <!-- 一级菜单：基础信息 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">基础信息</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：服务器 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">服务器</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：服务器列表 / 添加服务器 -->
+                <li>
+                  <a class="item lv3" href="list_server.html" data-page="服务器列表">
+                    <span class="dot"></span><span class="label">服务器列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="server_add.html" data-page="添加服务器">
+                    <span class="dot"></span><span class="label">添加服务器</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <!-- 二级菜单：模型 -->
+            <li class="group">
+              <button class="item lv2" type="button" data-toggle>
+                <span class="caret">&#9654;</span><span class="label">模型</span>
+              </button>
+              <ul class="sub">
+                <!-- 三级菜单：模型列表 / 添加模型 -->
+                <li>
+                  <a class="item lv3" href="model_server.html" data-page="模型列表">
+                    <span class="dot"></span><span class="label">模型列表</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="item lv3" href="model_add.html" data-page="添加模型">
+                    <span class="dot"></span><span class="label">添加模型</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：提示词 -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">提示词</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：提示词调试 / 调试列表 -->
+            <li class="group leaf">
+              <a class="item lv2" href="prompt_dis_2.0.html" data-page="提示词调试">
+                <span class="caret">&#9654;</span><span class="label">提示词调试</span>
+              </a>
+            </li>
+            <li class="group leaf">
+              <a class="item lv2" href="prompt_list.html" data-page="调试列表">
+                <span class="caret">&#9654;</span><span class="label">调试列表</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- 一级菜单：SQL -->
+        <li class="group open">
+          <button class="item lv1" type="button" data-toggle>
+            <span class="caret">&#9654;</span><span class="label">SQL</span>
+          </button>
+          <ul class="sub">
+            <!-- 二级菜单：表结构 -->
+            <li class="group leaf">
+              <a class="item lv2 active" href="table_relation.html" data-page="表结构">
+                <span class="caret">&#9654;</span><span class="label">表结构</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">v2.0 · 原型演示</div>
+  </aside>
+
+  <!-- ================= 主内容 ================= -->
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">SQL / <b>表结构</b></div>
+      <div class="actions">
+        <select class="sel" id="dbType" aria-label="数据库类型">
+          <option value="MySQL" selected>MySQL</option>
+          <option value="PostgreSQL">PostgreSQL</option>
+          <option value="Oracle">Oracle</option>
+          <option value="SQL Server">SQL Server</option>
+          <option value="SQLite">SQLite</option>
+          <option value="MariaDB">MariaDB</option>
+        </select>
+        <button class="btn btn-primary" type="button" id="btnConn">
+          <svg class="btn-ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 12h6"></path><path d="M10 8H7a4 4 0 0 0 0 8h3"></path><path d="M14 8h3a4 4 0 0 1 0 8h-3"></path>
+          </svg>
+          连接数据库
+        </button>
+      </div>
+    </div>
+
+    <div class="split">
+      <!-- ============ 左：数据库与表 ============ -->
+      <section class="card">
+        <div class="card-head">
+          <h2>数据库与表</h2>
+          <span class="hint" id="connHint">未连接数据库</span>
+        </div>
+
+        <div class="list-head">
+          <label class="check" for="chkAll">
+            <input type="checkbox" id="chkAll"><span>全选</span>
+          </label>
+          <span class="hint">数据库 / 表</span>
+        </div>
+
+        <div class="list-body" id="dbBody"></div>
+
+        <div class="card-foot">
+          <span class="hint" id="pickedHint">未勾选数据表</span>
+          <button class="btn btn-primary" type="button" id="btnExtract" disabled>提取表结构</button>
+        </div>
+      </section>
+
+      <!-- ============ 右：两个模块（上 表关系 / 下 表结构），各带一个「复制」 ============ -->
+      <div class="schema-stack" style="display:flex; flex-direction:column; gap:16px; min-width:0; min-height:0">
+        <!-- 模块一：表关系 -->
+        <section class="card" style="display:flex; flex-direction:column; flex:0 1 auto; min-height:0">
+          <div class="card-head">
+            <h2>表关系</h2>
+            <div class="head-right">
+              <span class="hint" id="relHint"></span>
+              <button class="btn btn-sm" type="button" id="btnCopyRel" disabled>复制</button>
+            </div>
+          </div>
+          <div class="schema-body" id="relBody"></div>
+        </section>
+
+        <!-- 模块二：表结构 -->
+        <section class="card" style="display:flex; flex-direction:column; flex:1 1 0; min-height:0">
+          <div class="card-head">
+            <h2>表结构</h2>
+            <div class="head-right">
+              <span class="hint" id="copiedHint"></span>
+              <button class="btn btn-sm" type="button" id="btnCopy" disabled>复制</button>
+            </div>
+          </div>
+          <div class="schema-body" id="schemaBody"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ================= 连接数据库弹窗 ================= -->
+<div class="overlay" id="connOverlay" hidden>
+  <div class="dialog dialog-lg" role="dialog" aria-modal="true" aria-labelledby="connTitle">
+    <h3 id="connTitle">连接 MySQL 数据库</h3>
+    <p class="hint">可重复连接多个服务器，已连接的服务器会追加到左侧列表。</p>
+
+    <div class="form in-dialog">
+      <div class="field">
+        <label>连接方式</label>
+        <div class="seg" id="connMode">
+          <button class="seg-btn active" type="button" data-mode="host">主机</button>
+          <button class="seg-btn" type="button" data-mode="url">URL</button>
+        </div>
+      </div>
+
+      <div class="field" id="f-connHost">
+        <label for="connHost"><span id="connHostLabel">服务器地址</span> <span class="req">*</span></label>
+        <input id="connHost" type="text" placeholder="127.0.0.1" autocomplete="off">
+        <span class="error" id="connHostErr">请输入服务器地址。</span>
+      </div>
+
+      <div class="field" id="f-connPort">
+        <label for="connPort">端口</label>
+        <input id="connPort" type="text" placeholder="3306" autocomplete="off">
+      </div>
+
+      <!-- SQLite 专用：JDBC URL（主机模式灰色不可填，URL 模式为单行文本输入框） -->
+      <div class="field" id="f-connJdbc" hidden>
+        <label for="connJdbc">JDBC URL</label>
+        <input id="connJdbc" type="text" placeholder="jdbc:sqlite:{file}" autocomplete="off">
+        <span class="error" id="connJdbcErr">请输入 JDBC URL。</span>
+      </div>
+
+      <!-- SQLite 专用：路径（主机模式经「浏览…／创建…」填写，URL 模式灰色且两按钮不可点） -->
+      <div class="field" id="f-connPath" hidden>
+        <label for="connPath">路径</label>
+        <div class="path-row">
+          <input id="connPath" type="text" placeholder="请选择或新建数据库文件" autocomplete="off">
+          <button class="btn btn-sm" type="button" id="btnPathBrowse">浏览...</button>
+          <button class="btn btn-sm" type="button" id="btnPathCreate">创建...</button>
+        </div>
+        <span class="error" id="connPathErr">请填写数据库文件路径。</span>
+      </div>
+
+      <div class="field" id="f-connUser">
+        <label for="connUser">用户名</label>
+        <input id="connUser" type="text" placeholder="root" autocomplete="off">
+      </div>
+
+      <div class="field" id="f-connPwd" style="margin-bottom:0">
+        <label for="connPwd">密码</label>
+        <input id="connPwd" type="password" placeholder="请输入密码" autocomplete="new-password">
+      </div>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="connCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="connOk">连接数据库</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  /* =========================================================
+     表结构数据不再写死在页面里，也不由服务端预先注入：
+     用户点「连接数据库」→ 前端 POST /api/db/connect/ → 后端真去连
+     用户填的那台库（SQLite / MySQL / MariaDB / PostgreSQL），
+     现场内省出「库 → 表 → 字段」再回填左侧树；连不上就把原因回显。
+     每列 = [0]字段名 [1]类型 [2]是否必填(1/0) [3]键(PK/UK/FK/'') [4]默认值 [5]注释
+     每表另有 rels = [{col, ref_table, ref_col}]，即库里**真实存在的外键**。
+     提取后生成「表结构说明」：库里没有注释的表/字段，POST /api/schema/desc/
+     由后端用硅基流动（deepseek-ai/DeepSeek-V4-Pro）按存储内容补充备注；
+     表关系以真实外键为准，覆盖不全时再由 AI 兜底补全。
+     右侧是**两个独立模块**（各有标题栏与自己的「复制」）：
+     上＝「表关系」（文字版逐条列出，复制只带走表关系段），
+     下＝「表结构」（逐表字段明细，复制只带走表结构段）；
+     整段文本（表关系在上、表结构在下）见 buildText()。
+     ========================================================= */
+
+  /* ================= 状态 ================= */
+  /* CONNS：已连接的服务器 { id, mode, host, port, url, type, user, dbs:[{name,cn,tables}] }
+     id = 判重键也是左侧根节点显示名：主机模式「地址[:端口]」，URL 模式「URL 原文」 */
+  var CONNS = [];
+  var selected = {};   /* 勾选状态：连接 id + '|' + 库名 + '|' + 表名 -> true */
+  var schemaText = ''; /* 右侧两块对应的可复制文本（表关系 + 表结构，用于整段预览/测试） */
+  var relText = '';    /* 「表关系」模块的可复制文本 */
+  var structText = ''; /* 「表结构」模块的可复制文本 */
+  var connMode = 'host';
+
+  var dbType = document.getElementById('dbType');
+  var dbBody = document.getElementById('dbBody');
+  var schemaBody = document.getElementById('schemaBody');
+  var relBody = document.getElementById('relBody');
+  var chkAll = document.getElementById('chkAll');
+  var btnExtract = document.getElementById('btnExtract');
+  var btnCopy = document.getElementById('btnCopy');
+  var btnCopyRel = document.getElementById('btnCopyRel');
+  var pickedHint = document.getElementById('pickedHint');
+  var connHint = document.getElementById('connHint');
+  var copiedHint = document.getElementById('copiedHint');
+  var relHint = document.getElementById('relHint');
+  var overlay = document.getElementById('connOverlay');
+  var toastEl = document.getElementById('toast');
+  var toastTimer;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  /* 「表结构说明」文本按显示宽度对齐：中文按 2 个字符宽计 */
+  function textWidth(s) {
+    s = String(s == null ? '' : s);
+    var w = 0;
+    for (var i = 0; i < s.length; i++) { w += s.charCodeAt(i) > 255 ? 2 : 1; }
+    return w;
+  }
+  function padEndW(s, width) {
+    s = String(s == null ? '' : s);
+    var pad = width - textWidth(s);
+    return s + (pad > 0 ? new Array(pad + 1).join(' ') : '');
+  }
+  function sKey(id, db, tbl) { return id + '|' + db + '|' + tbl; }
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+  /* ================= 左侧：渲染 服务器 → 数据库 → 表 ================= */
+  function renderList() {
+    if (!CONNS.length) {
+      dbBody.innerHTML = '<div class="empty"><b>还没有连接数据库</b>点击右上角「连接数据库」开始</div>';
+      connHint.textContent = '未连接数据库';
+      syncChecks();
+      return;
+    }
+
+    var html = '';
+    CONNS.forEach(function (c) {
+      var mine = [];
+      c.dbs.forEach(function (d) {
+        d.tables.forEach(function (t) { mine.push(sKey(c.id, d.name, t.name)); });
+      });
+      var on = mine.filter(function (k) { return selected[k]; }).length;
+
+      html += '<label class="row srv" title="' + esc(c.type + (c.user ? ' · ' + c.user : '')) + '">' +
+        '<input type="checkbox" class="chk-srv" data-srv="' + esc(c.id) + '"' + (on === mine.length ? ' checked' : '') + '>' +
+        '<span class="ico"></span>' +
+        '<span class="name">' + esc(c.id) + '</span>' +
+        '<span class="meta">' + esc(c.type) + ' · ' + c.dbs.length + ' 个库</span>' +
+        '</label>';
+
+      c.dbs.forEach(function (d) {
+        var onDb = d.tables.filter(function (t) { return selected[sKey(c.id, d.name, t.name)]; }).length;
+
+        html += '<label class="row db" title="' + esc(d.cn) + '">' +
+          '<input type="checkbox" class="chk-db" data-srv="' + esc(c.id) + '" data-db="' + esc(d.name) + '"' +
+          (onDb === d.tables.length ? ' checked' : '') + '>' +
+          '<span class="ico"></span>' +
+          '<span class="name">' + esc(d.name) + '</span>' +
+          '<span class="meta">' + d.tables.length + ' 张表</span>' +
+          '</label>';
+
+        d.tables.forEach(function (t) {
+          html += '<label class="row tbl">' +
+            '<input type="checkbox" class="chk-tbl" data-srv="' + esc(c.id) + '" data-db="' + esc(d.name) + '" data-table="' + esc(t.name) + '"' +
+            (selected[sKey(c.id, d.name, t.name)] ? ' checked' : '') + '>' +
+            '<span class="ico"></span>' +
+            '<span class="name">' + esc(t.name) + '</span>' +
+            '<span class="meta">' + esc(t.cn) + '</span>' +
+            '</label>';
+        });
+      });
+    });
+
+    dbBody.innerHTML = html;
+    connHint.textContent = '已连接 ' + CONNS.length + ' 个服务器';
+    syncChecks();
+  }
+
+  /* 全选 / 半选 / 按钮灰态（服务器行、数据库行都由其下的表决定） */
+  function syncChecks() {
+    var all = Array.prototype.slice.call(dbBody.querySelectorAll('.chk-tbl'));
+    var n = 0;
+
+    all.forEach(function (cb) {
+      var k = sKey(cb.dataset.srv, cb.dataset.db, cb.dataset.table);
+      if (cb.checked) { selected[k] = true; n++; } else { delete selected[k]; }
+    });
+
+    Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-db'), function (cb) {
+      var mine = all.filter(function (m) {
+        return m.dataset.srv === cb.dataset.srv && m.dataset.db === cb.dataset.db;
+      });
+      var on = mine.filter(function (m) { return m.checked; }).length;
+      cb.checked = mine.length > 0 && on === mine.length;
+      cb.indeterminate = on > 0 && on < mine.length;
+    });
+
+    Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-srv'), function (cb) {
+      var mine = all.filter(function (m) { return m.dataset.srv === cb.dataset.srv; });
+      var on = mine.filter(function (m) { return m.checked; }).length;
+      cb.checked = mine.length > 0 && on === mine.length;
+      cb.indeterminate = on > 0 && on < mine.length;
+    });
+
+    chkAll.checked = all.length > 0 && n === all.length;
+    chkAll.indeterminate = n > 0 && n < all.length;
+
+    btnExtract.disabled = n === 0;
+    pickedHint.textContent = n ? '已勾选 ' + n + ' 张表' : '未勾选数据表';
+  }
+
+  /* ================= 右侧：表关系 + 表结构 两个模块 ================= */
+  /* 关系类型换算成中文（真实外键没给 type 时留空） */
+  function relTypeCn(t) {
+    var m = { 'N:1': '多对一', '1:N': '一对多', '1:1': '一对一', 'N:N': '多对多' };
+    var k = String(t || '').toUpperCase().replace(/\s+/g, '');
+    return m[k] || String(t || '');
+  }
+  /* 把关系收敛到「引用方在本次勾选表内」的那些（顺序与后端一致） */
+  function relsFor(list, rels) {
+    var names = {};
+    list.forEach(function (item) { names[item.t.name] = true; });
+    return (rels || []).filter(function (r) { return names[r.from]; });
+  }
+
+  /* 两个模块各自的空态提示：文案与模块口径一一对应，提取后只要有内容就被替换。
+     上「表关系」只提表关系，下「表结构」只提字段，互不串词。 */
+  var EMPTY_REL = '<div class="empty"><b>尚未提取表关系</b>左侧勾选数据表后，点击「提取表结构」查看表间关系</div>';
+  var EMPTY_STRUCT = '<div class="empty"><b>尚未提取表结构</b>左侧勾选数据表后，点击「提取表结构」查看字段明细</div>';
+
+  /* 模块一「表关系」的内容区：文字版逐条列出（没有关系就整块为空）。
+     标题与「复制」按钮在卡片头（card-head）里，这里只产出关系行。 */
+  function relModule(mine) {
+    if (!mine.length) { return ''; }
+    return '<div style="padding:11px 18px 13px">' + mine.map(function (r) {
+      var from = r.from + (r.from_col ? '.' + r.from_col : '');
+      var to = r.to + (r.to_col ? '.' + r.to_col : '');
+      var tag = relTypeCn(r.type);
+      return '<div style="font-size:13px;color:var(--text-2);line-height:2">' +
+        '<code>' + esc(from) + '</code> → <code>' + esc(to) + '</code>' +
+        (tag ? ' <span class="hint">' + esc(tag) + '</span>' : '') +
+        (r.desc ? ' <span class="hint">' + esc(r.desc) + '</span>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  /* 模块二「表结构」的内容区：逐表块（表名 + 字段明细），关系不在这里重复，见模块一。
+     标题与「复制」按钮在卡片头（card-head）里。 */
+  function tblModule(list) {
+    return list.map(function (item) { return schemaBlock(item.db, item.t); }).join('');
+  }
+
+  /* 模块二「表结构」：每张表一个块（表名 + 字段明细），关系不在这里重复，见模块一 */
+  function schemaBlock(db, t) {
+    var rows = t.cols.map(function (c) {
+      var keyHtml = c[3]
+        ? '<span class="key ' + c[3].toLowerCase() + '">' + c[3] + '</span>'
+        : '<span class="hint">—</span>';
+      return '<tr>' +
+        '<td><code>' + esc(c[0]) + '</code></td>' +
+        '<td class="c-soft">' + esc(c[1]) + '</td>' +
+        '<td class="c-soft">' + (c[2] ? '否' : '是') + '</td>' +
+        '<td>' + keyHtml + '</td>' +
+        '<td class="c-soft">' + esc(c[4] || '—') + '</td>' +
+        '<td class="cmt">' + esc(c[5] || '') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    return '<div class="schema-tbl">' +
+      '<div class="schema-head">' +
+        '<b>' + esc(t.name) + '</b>' +
+        '<span class="hint">' + esc(t.cn) + ' · ' + t.cols.length + ' 个字段 · ' + esc(db) + '</span>' +
+      '</div>' +
+      '<div class="table-wrap"><table>' +
+        '<thead><tr>' +
+          '<th>字段名</th><th>类型</th><th>允许空</th><th>键</th><th>默认值</th><th>注释</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table></div>' +
+    '</div>';
+  }
+
+  /* 「表关系」文本：引用方.字段 → 被引用表.字段  类型  说明（没有关系就返回空串）。
+     与「表关系」模块同源同序，供该模块的「复制」使用。 */
+  function buildRelText(list, rels) {
+    var mine = relsFor(list, rels);
+    if (!mine.length) { return ''; }
+
+    var wFrom = 4, wTo = 4;
+    var rows = mine.map(function (r) {
+      var a = r.from + (r.from_col ? '.' + r.from_col : '');
+      var b = r.to + (r.to_col ? '.' + r.to_col : '');
+      wFrom = Math.max(wFrom, textWidth(a));
+      wTo = Math.max(wTo, textWidth(b));
+      return { a: a, b: b, r: r };
+    });
+
+    var out = ['表关系'];
+    rows.forEach(function (x) {
+      out.push((padEndW(x.a, wFrom + 4) + '→ ' + padEndW(x.b, wTo + 4) +
+               relTypeCn(x.r.type) + (x.r.desc ? '  ' + x.r.desc : '')).replace(/\s+$/, ''));
+    });
+    return out.join('\n');
+  }
+
+  /* 「表结构」文本：表名 - 表说明，随后逐字段按「列名 / 类型 / 备注」对齐输出。
+     按需求只呈现「表和字段存储的内容」，不含 允许空 / 键 / 默认值 三列。 */
+  function buildStructText(list) {
+    var out = [];
+    list.forEach(function (item, idx) {
+      var t = item.t;
+      out.push(t.cn ? (t.name + ' - ' + t.cn) : t.name);
+
+      var wName = 4, wType = 4;
+      t.cols.forEach(function (c) {
+        wName = Math.max(wName, textWidth(c[0]));
+        wType = Math.max(wType, textWidth(c[1]));
+      });
+      t.cols.forEach(function (c) {
+        out.push(padEndW(c[0], wName + 4) + padEndW(c[1], wType + 4) + (c[5] || ''));
+      });
+
+      if (idx !== list.length - 1) { out.push(''); }
+    });
+    return out.join('\n');
+  }
+
+  /* 整段文本（表关系在上、表结构在下），供页面级预览与无头断言使用。 */
+  function buildText(list, rels) {
+    var r = buildRelText(list, rels);
+    var s = buildStructText(list);
+    return r ? (r + '\n\n' + s) : s;
+  }
+
+  function pickedTables() {
+    var list = [];
+    Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-tbl'), function (cb) {
+      if (!cb.checked) return;
+      CONNS.forEach(function (c) {
+        if (c.id !== cb.dataset.srv) return;
+        c.dbs.forEach(function (d) {
+          if (d.name !== cb.dataset.db) return;
+          d.tables.forEach(function (t) {
+            if (t.name === cb.dataset.table) list.push({ db: d.name, t: t });
+          });
+        });
+      });
+    });
+    return list;
+  }
+
+  /* ================= 交互：勾选（服务器行 / 数据库行向下级联） ================= */
+  dbBody.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.classList.contains('chk-srv')) {
+      Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-tbl'), function (m) {
+        if (m.dataset.srv === t.dataset.srv) m.checked = t.checked;
+      });
+    } else if (t.classList.contains('chk-db')) {
+      Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-tbl'), function (m) {
+        if (m.dataset.srv === t.dataset.srv && m.dataset.db === t.dataset.db) m.checked = t.checked;
+      });
+    }
+    syncChecks();
+  });
+
+  chkAll.addEventListener('change', function () {
+    Array.prototype.forEach.call(dbBody.querySelectorAll('.chk-tbl'), function (m) {
+      m.checked = chkAll.checked;
+    });
+    syncChecks();
+  });
+
+  /* ================= 交互：提取表结构 + 生成表结构说明 ================= */
+  var lastRels = [];   /* 最近一次渲染用到的表关系（供测试钩子读取） */
+
+  /* 渲染右侧**两个模块**：上＝表关系、下＝表结构；各自维护自己的可复制文本与「复制」可用态。 */
+  function renderSchema(list, rels) {
+    var mine = relsFor(list, rels || []);
+    lastRels = rels || [];
+
+    /* 两个模块各管各的空态：本模块无内容就回落到本模块自己的提示，不留白 */
+    relBody.innerHTML = mine.length ? relModule(mine) : EMPTY_REL;      /* 模块一：表关系 */
+    schemaBody.innerHTML = list.length ? tblModule(list) : EMPTY_STRUCT; /* 模块二：表结构 */
+
+    relText = buildRelText(list, lastRels);
+    structText = buildStructText(list);
+    schemaText = buildText(list, lastRels);
+
+    btnCopyRel.disabled = !relText;
+    btnCopy.disabled = !structText;
+
+    /* 模块标题栏右侧的说明：条数 / 张数与字段数 */
+    if (mine.length) {
+      relHint.textContent = mine.length + ' 条 · 真实外键优先，AI 兜底';
+    } else {
+      relHint.textContent = '—';
+    }
+    var fields = list.reduce(function (n, it) { return n + ((it.t.cols || []).length); }, 0);
+    copiedHint.textContent = list.length + ' 张表 · 共 ' + fields + ' 个字段';
+  }
+
+  /* 「连接数据库」时后端已带回真实外键（t.rels），收本次选中表作为引用方的部分 */
+  function collectRels(list) {
+    var out = [];
+    list.forEach(function (item) {
+      (item.t.rels || []).forEach(function (r) {
+        out.push({
+          from: item.t.name, from_col: r.col || '',
+          to: r.ref_table || '', to_col: r.ref_col || ''
+        });
+      });
+    });
+    return out;
+  }
+
+  /* 真实外键覆盖不全（库里没建外键，或有表既不被引用也不引用别人）→ 需要 AI 兜底补关系 */
+  function needAiRels(list, known) {
+    if (!known.length) return true;
+    var touched = {};
+    known.forEach(function (r) { touched[r.from] = true; touched[r.to] = true; });
+    return list.some(function (item) { return !touched[item.t.name]; });
+  }
+
+  /* 是否有「库里没有备注」的表说明 / 字段备注 —— 有才需要 AI 补充 */
+  function needAi(list) {
+    return list.some(function (item) {
+      if (!String(item.t.cn || '').trim()) return true;
+      return item.t.cols.some(function (c) { return !String(c[5] || '').trim(); });
+    });
+  }
+
+  /* 生成表结构说明：把选中的表结构交给后端，由硅基流动补全缺失的表/字段备注，
+     并在「真实外键覆盖不全」时由 AI 兜底补充表关系。
+     对应需求：数据库没有列备注的，根据数据库信息描述用 AI 补充字段备注；还要生成表关系。 */
+  function aiDescribe(list, rels) {
+    var payload = {
+      db_desc: '',
+      tables: list.map(function (item) {
+        return { name: item.t.name, cn: item.t.cn, cols: item.t.cols };
+      }),
+      rels: rels || []
+    };
+    return fetch('/api/schema/desc/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  /* 后端按提交顺序等长返回，按下标回填；只填原本为空的位置，库里已有的备注不动 */
+  function applyAi(list, tables) {
+    if (!tables) return 0;
+    var n = 0;
+    list.forEach(function (item, i) {
+      var got = tables[i];
+      if (!got) return;
+      if (!String(item.t.cn || '').trim() && String(got.cn || '').trim()) {
+        item.t.cn = got.cn;
+        n++;
+      }
+      (got.cols || []).forEach(function (c, j) {
+        var col = item.t.cols[j];
+        if (!col) return;
+        if (String(c[0]) !== String(col[0])) return;   /* 字段名对不上就不回填 */
+        if (!String(col[5] || '').trim() && String(c[5] || '').trim()) {
+          col[5] = c[5];
+          n++;
+        }
+      });
+    });
+    return n;
+  }
+
+  btnExtract.addEventListener('click', function () {
+    var list = pickedTables();
+    if (!list.length) { toast('请先勾选需要提取的数据表'); return; }
+
+    /* 真实外键先落地：库里已建的外键关系当场就能显示，不必等 AI */
+    var known = collectRels(list);
+
+    /* 先按库里真实结构渲染（备注可能为空），再让 AI 把缺的补上 */
+    renderSchema(list, known);
+    toast('已提取 ' + list.length + ' 张表的结构');
+
+    if (!needAi(list) && !needAiRels(list, known)) return;
+
+    var oldText = btnExtract.textContent;
+    btnExtract.disabled = true;
+    btnExtract.textContent = '生成说明中…';
+    copiedHint.textContent = 'AI 生成说明中…';
+
+    aiDescribe(list, known).then(function (res) {
+      btnExtract.textContent = oldText;
+      syncChecks();
+      if (res && res.ok) {
+        var n = applyAi(list, res.tables) || res.filled || 0;
+        var rels = (res.relations && res.relations.length) ? res.relations : known;
+        renderSchema(list, rels);
+
+        /* 两个模块各报自己的结果：上＝表关系条数，下＝补充的备注处数 */
+        relHint.textContent = rels.length
+          ? (rels.length + ' 条' + (res.relation_warning ? ' · 真实外键（AI 补充失败）'
+                                                         : ' · 真实外键优先，AI 兜底'))
+          : '—';
+        copiedHint.textContent = n ? ('已补充备注 ' + n + ' 处') : '';
+
+        var bits = [];
+        if (n) { bits.push('补充备注 ' + n + ' 处'); }
+        if (rels.length) { bits.push('表关系 ' + rels.length + ' 条'); }
+        var summary = bits.length ? '（' + bits.join('、') + '）' : '';
+        toast('已生成表结构说明' + summary + (res.relation_warning ? '，表关系补充失败' : ''));
+      } else {
+        copiedHint.textContent = 'AI 生成说明失败';
+        toast('AI 生成说明失败：' + ((res && res.error) || '未知原因'));
+      }
+    }).catch(function () {
+      btnExtract.textContent = oldText;
+      syncChecks();
+      copiedHint.textContent = 'AI 生成说明失败';
+      toast('AI 生成说明失败，请确认服务已启动');
+    });
+  });
+
+  /* ================= 交互：复制（两个模块各一个「复制」） ================= */
+  /* 上「表关系」的复制只带走表关系段，下「表结构」的复制只带走表结构段；
+     时间戳落在各自模块标题栏右侧的说明位上。 */
+  function copyFrom(getText, hintEl, what) {
+    var text = getText();
+    if (!text) { toast('暂无可复制的内容'); return; }
+
+    function stamp() {
+      var d = new Date();
+      var two = function (n) { return n < 10 ? '0' + n : String(n); };
+      hintEl.textContent = '已复制 · ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+    }
+
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); stamp(); toast(what + '已复制到剪贴板'); }
+      catch (err) { toast('复制失败，请手动选择内容'); }
+      document.body.removeChild(ta);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        stamp();
+        toast(what + '已复制到剪贴板');
+      }).catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  btnCopyRel.addEventListener('click', function () {
+    copyFrom(function () { return relText; }, relHint, '表关系');
+  });
+
+  btnCopy.addEventListener('click', function () {
+    copyFrom(function () { return structText; }, copiedHint, '表结构');
+  });
+
+  /* ================= 交互：连接数据库弹窗 ================= */
+  var connTitle = document.getElementById('connTitle');
+  var connHost = document.getElementById('connHost');
+  var connHostLabel = document.getElementById('connHostLabel');
+  var connHostErr = document.getElementById('connHostErr');
+  var connPort = document.getElementById('connPort');
+  var connUser = document.getElementById('connUser');
+  var connPwd = document.getElementById('connPwd');
+  var connJdbc = document.getElementById('connJdbc');
+  var connPath = document.getElementById('connPath');
+  var btnPathBrowse = document.getElementById('btnPathBrowse');
+  var btnPathCreate = document.getElementById('btnPathCreate');
+  var fHost = document.getElementById('f-connHost');
+  var fPort = document.getElementById('f-connPort');
+  var fUser = document.getElementById('f-connUser');
+  var fPwd = document.getElementById('f-connPwd');
+  var fJdbc = document.getElementById('f-connJdbc');
+  var fPath = document.getElementById('f-connPath');
+  var segBox = document.getElementById('connMode');
+
+  /* SQLite 的 JDBC URL 前缀；主机模式下由「路径」自动拼装 */
+  var SQLITE_JDBC_PREFIX = 'jdbc:sqlite:';
+
+  /* 各类型的默认端口 / URL 协议名：只用于输入框 placeholder 的填写提示，不参与取值 */
+  var DEFAULT_PORT = { 'MySQL': '3306', 'MariaDB': '3306', 'PostgreSQL': '5432',
+                       'Oracle': '1521', 'SQL Server': '1433', 'SQLite': '' };
+  var URL_SCHEME = { 'MySQL': 'mysql', 'MariaDB': 'mariadb', 'PostgreSQL': 'postgresql',
+                     'Oracle': 'oracle', 'SQL Server': 'sqlserver', 'SQLite': 'sqlite' };
+
+  function isSqlite() { return dbType.value === 'SQLite'; }
+
+  function hostPlaceholder() {
+    if (connMode === 'url') {
+      if (isSqlite()) return SQLITE_JDBC_PREFIX;
+      return URL_SCHEME[dbType.value] + '://root@127.0.0.1:' +
+             DEFAULT_PORT[dbType.value] + '/prompt_test_db';
+    }
+    return '127.0.0.1';
+  }
+
+  /* 主机模式：JDBC URL 由路径自动拼装（灰色不可填）；路径为空时回到模板占位 */
+  function syncJdbcFromPath() {
+    connJdbc.value = connPath.value.trim() ? SQLITE_JDBC_PREFIX + connPath.value.trim() : '';
+  }
+
+  /* 弹窗字段随「数据库类型 + 连接方式」联动：
+     · 非 SQLite：服务器地址 / 端口 / 用户名 / 密码（沿用原逻辑）
+     · SQLite    ：JDBC URL + 路径（浏览…／创建…）
+         - 主机模式：JDBC URL 灰显不可填（随路径自动拼装）；路径可填，两按钮可用
+         - URL 模式：JDBC URL 为单行文本输入框；路径灰显，两按钮不可点 */
+  function syncModeUI() {
+    var isUrl = connMode === 'url';
+    var sqlite = isSqlite();
+
+    /* 非 SQLite 的四项在 SQLite 下整体隐藏 */
+    fHost.hidden = sqlite;
+    fPort.hidden = sqlite || isUrl;
+    fUser.hidden = sqlite;
+    fPwd.hidden = sqlite;
+
+    /* SQLite 两项仅 SQLite 下出现 */
+    fJdbc.hidden = !sqlite;
+    fPath.hidden = !sqlite;
+
+    if (sqlite) {
+      connJdbc.disabled = !isUrl;
+      connJdbc.readOnly = !isUrl;
+      connPath.disabled = isUrl;
+      connPath.readOnly = isUrl;
+      btnPathBrowse.disabled = isUrl;
+      btnPathCreate.disabled = isUrl;
+      if (isUrl) {
+        connJdbc.placeholder = SQLITE_JDBC_PREFIX;
+      } else {
+        connJdbc.placeholder = SQLITE_JDBC_PREFIX + '{file}';
+        syncJdbcFromPath();
+      }
+      return;
+    }
+
+    connHostLabel.textContent = isUrl ? 'URL' : '服务器地址';
+    connHostErr.textContent = isUrl ? '请输入 URL。' : '请输入服务器地址。';
+    connHost.placeholder = hostPlaceholder();
+    connPort.placeholder = DEFAULT_PORT[dbType.value] || '';
+    /* SQLite 专用控件在其它数据库类型下整体不可用（随字段一并隐藏） */
+    connJdbc.disabled = true;
+    connPath.disabled = true;
+    btnPathBrowse.disabled = true;
+    btnPathCreate.disabled = true;
+  }
+
+  function openConn() {
+    connMode = 'host';
+    Array.prototype.forEach.call(segBox.querySelectorAll('.seg-btn'), function (b) {
+      b.classList.toggle('active', b.dataset.mode === 'host');
+    });
+    connTitle.textContent = '连接 ' + dbType.value + ' 数据库';
+    connHost.value = '';
+    connPort.value = '';
+    connUser.value = '';
+    connPwd.value = '';
+    connJdbc.value = '';
+    connPath.value = '';
+    fHost.classList.remove('invalid');
+    fJdbc.classList.remove('invalid');
+    fPath.classList.remove('invalid');
+    syncModeUI();
+    overlay.hidden = false;
+    (isSqlite() ? connPath : connHost).focus();
+  }
+
+  function closeConn() { overlay.hidden = true; }
+
+  document.getElementById('btnConn').addEventListener('click', openConn);
+  document.getElementById('connCancel').addEventListener('click', closeConn);
+
+  segBox.addEventListener('click', function (e) {
+    var b = e.target.closest('.seg-btn');
+    if (!b) return;
+    var prev = connMode;
+    connMode = b.dataset.mode;
+    Array.prototype.forEach.call(segBox.querySelectorAll('.seg-btn'), function (x) {
+      x.classList.toggle('active', x === b);
+    });
+    fHost.classList.remove('invalid');
+    fJdbc.classList.remove('invalid');
+    fPath.classList.remove('invalid');
+    /* 主机 → URL：清掉自动拼装的 JDBC URL，改由用户手填 */
+    if (isSqlite() && connMode === 'url' && prev === 'host') connJdbc.value = '';
+    syncModeUI();
+    if (!isSqlite()) connHost.focus();
+  });
+
+  /* 顶部数据库类型变更时，弹窗开着就同步标题与字段 */
+  dbType.addEventListener('change', function () {
+    if (!overlay.hidden) {
+      connTitle.textContent = '连接 ' + dbType.value + ' 数据库';
+      fJdbc.classList.remove('invalid');
+      fPath.classList.remove('invalid');
+      syncModeUI();
+    }
+  });
+
+  /* 「浏览…」（选择已有文件）/「创建…」（另存为并新建文件）：
+     浏览器无法弹原生文件对话框并拿到真实绝对路径，故由后端在**本机**
+     调起系统文件资源管理器（POST /api/fs/pick/），再把绝对路径回填。 */
+  function pickDbFile(kind) {
+    var isCreate = kind === 'create';
+    var btn = isCreate ? btnPathCreate : btnPathBrowse;
+    if (btn.disabled) return;
+
+    var oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = isCreate ? '创建中…' : '打开中…';
+
+    function restore() {
+      btn.textContent = oldText;
+      /* 回到「当前数据库类型 × 连接方式」应有的可用状态 */
+      btn.disabled = !isSqlite() || connMode === 'url';
+    }
+
+    fetch('/api/fs/pick/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: isCreate ? 'save' : 'open',
+        create: isCreate,
+        title: isCreate ? '创建数据库文件' : '选择数据库文件'
+      })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      restore();
+      if (res && res.ok && res.path) {
+        connPath.value = res.path;
+        fPath.classList.remove('invalid');
+        syncJdbcFromPath();
+        toast((isCreate && res.created ? '已创建数据库文件：' : '已选择数据库文件：') + res.path);
+      } else if (res && res.canceled) {
+        toast('已取消选择');
+      } else {
+        toast((res && res.error) || '无法打开文件对话框');
+      }
+    }).catch(function () {
+      restore();
+      toast('无法打开文件对话框，请确认服务已启动');
+    });
+  }
+
+  btnPathBrowse.addEventListener('click', function () { pickDbFile('open'); });
+  btnPathCreate.addEventListener('click', function () { pickDbFile('create'); });
+
+  /* 手动输入 / 修改路径时，同步灰色的 JDBC URL */
+  connPath.addEventListener('input', function () {
+    if (isSqlite() && connMode === 'host') {
+      fPath.classList.remove('invalid');
+      syncJdbcFromPath();
+    }
+  });
+
+  /* ================= 交互：点「连接数据库」→ 真实连接目标库 =================
+     把弹窗里填的连接信息交给后端（POST /api/db/connect/），后端真去连
+     MySQL / MariaDB / PostgreSQL / SQLite 并内省表结构：
+       · 连上 → 用后端返回的真实「库 → 表 → 字段」挂到左侧树；
+       · 连不上 → 原样回显失败原因（账号错、库不存在、服务没起、缺驱动…），
+                  不往左侧列表里塞任何假数据。 */
+  var connOkBtn = document.getElementById('connOk');
+  var connOkHtml = connOkBtn.innerHTML;
+  var connecting = false;
+
+  function restoreConnBtn() {
+    connecting = false;
+    connOkBtn.disabled = false;
+    connOkBtn.innerHTML = connOkHtml;
+  }
+
+  connOkBtn.addEventListener('click', function () {
+    if (connecting) return;
+
+    var isUrl = connMode === 'url';
+    var sqlite = isSqlite();
+    var type = dbType.value;
+    var payload = { type: type, mode: connMode, host: '', port: '', url: '', user: '', password: '', path: '' };
+
+    if (sqlite) {
+      if (isUrl) {
+        var jdbc = connJdbc.value.trim();
+        fJdbc.classList.toggle('invalid', !jdbc);
+        if (!jdbc) { toast('请填写 JDBC URL'); connJdbc.focus(); return; }
+        payload.url = jdbc;
+      } else {
+        var path = connPath.value.trim();
+        fPath.classList.toggle('invalid', !path);
+        if (!path) { toast('请填写路径（可点「浏览…」或「创建…」）'); connPath.focus(); return; }
+        payload.path = path;
+      }
+    } else {
+      var host = connHost.value.trim();
+      fHost.classList.toggle('invalid', !host);
+      if (!host) {
+        toast(isUrl ? '请填写 URL' : '请填写服务器地址');
+        connHost.focus();
+        return;
+      }
+      payload.host = isUrl ? '' : host;
+      payload.url = isUrl ? host : '';
+      payload.port = connPort.value.trim();
+      payload.user = connUser.value.trim();
+      payload.password = connPwd.value;
+    }
+
+    connecting = true;
+    connOkBtn.disabled = true;
+    connOkBtn.textContent = '连接中…';
+
+    fetch('/api/db/connect/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      restoreConnBtn();
+
+      if (!res || !res.ok) {
+        toast((res && res.error) || '连接失败，请检查连接信息');
+        return;
+      }
+
+      /* 判重键与左侧根节点名由后端统一生成（主机模式「地址[:端口]」/ URL 原文 / SQLite 路径） */
+      var id = res.server_id || payload.path || payload.url || payload.host;
+      var existed = null;
+      CONNS.forEach(function (c) { if (c.id.toLowerCase() === String(id).toLowerCase()) existed = c; });
+
+      if (existed) {
+        existed.type = type;
+        existed.mode = connMode;
+        existed.dbs = res.dbs;
+        toast('已重新连接「' + existed.id + '」：' + res.table_count + ' 张表');
+      } else {
+        CONNS.push({
+          id: id,
+          mode: connMode,
+          host: payload.host || payload.path,
+          port: payload.port,
+          url: payload.url,
+          type: type,
+          user: payload.user,
+          dbs: res.dbs
+        });
+        toast('已连接 ' + type + '「' + id + '」：' + res.db_count + ' 个库 / ' + res.table_count + ' 张表');
+      }
+
+      closeConn();
+      renderList();
+    }).catch(function () {
+      restoreConnBtn();
+      toast('无法连接服务，请确认服务已启动');
+    });
+  });
+
+  /* ================= 初始化 ================= */
+  renderList();
+  /* 初始空态：两个模块各给自己那一条文案（表关系 / 表结构），提取后即被替换 */
+  relBody.innerHTML = EMPTY_REL;
+  schemaBody.innerHTML = EMPTY_STRUCT;
+
+  /* ---------- 左侧菜单（与其余原型一致） ---------- */
+  document.getElementById('menu').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.item');
+    if (!btn) return;
+
+    if (btn.hasAttribute('data-toggle')) {
+      btn.parentElement.classList.toggle('open');
+      return;
+    }
+
+    var items = document.querySelectorAll('.item');
+    Array.prototype.forEach.call(items, function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (btn.classList.contains('lv1')) {
+      if (btn.parentElement.classList.contains('leaf')) {
+        toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+      } else {
+        btn.parentElement.classList.add('open');
+      }
+      return;
+    }
+
+    toast('切换到「' + btn.getAttribute('data-page') + '」（原型示意）');
+  });
+
+  /* 供无头断言调用 */
+  window.__TP__ = {
+    conns: function () { return CONNS; },
+    selected: function () { return selected; },
+    schemaText: function () { return schemaText; },
+    relText: function () { return relText; },
+    structText: function () { return structText; },
+    relations: function () { return lastRels; },
+    renderList: renderList,
+    syncChecks: syncChecks,
+    /* —— 表结构说明：提取 / AI 补充备注 / 表关系 —— */
+    pickedTables: pickedTables,
+    renderSchema: renderSchema,
+    buildText: buildText,
+    buildRelText: buildRelText,
+    buildStructText: buildStructText,
+    relsFor: relsFor,
+    needAi: needAi,
+    needAiRels: needAiRels,
+    collectRels: collectRels,
+    applyAi: applyAi,
+    clickExtract: function () { btnExtract.click(); },
+    clickCopyRel: function () { btnCopyRel.click(); },
+    clickCopy: function () { btnCopy.click(); },
+    /* —— 连接弹窗：供无头断言读取「数据库类型 × 连接方式」下的字段状态 —— */
+    openConn: openConn,
+    syncModeUI: syncModeUI,
+    setDbType: function (t) {
+      dbType.value = t;
+      dbType.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    setConnMode: function (m) {
+      var btn = segBox.querySelector('.seg-btn[data-mode="' + m + '"]');
+      if (btn) btn.click();
+    },
+    connState: function () {
+      return {
+        type: dbType.value,
+        mode: connMode,
+        host: { hidden: fHost.hidden, value: connHost.value },
+        port: { hidden: fPort.hidden },
+        user: { hidden: fUser.hidden },
+        pwd: { hidden: fPwd.hidden },
+        jdbc: {
+          hidden: fJdbc.hidden, disabled: connJdbc.disabled, readOnly: connJdbc.readOnly,
+          value: connJdbc.value, placeholder: connJdbc.placeholder
+        },
+        path: {
+          hidden: fPath.hidden, disabled: connPath.disabled, readOnly: connPath.readOnly,
+          value: connPath.value
+        },
+        browseDisabled: btnPathBrowse.disabled,
+        createDisabled: btnPathCreate.disabled
+      };
+    },
+    setPath: function (v) {
+      connPath.value = v;
+      connPath.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    setJdbc: function (v) { connJdbc.value = v; },
+    clickOk: function () { document.getElementById('connOk').click(); }
+  };
+})();
+</script>
+</body>
+</html>
